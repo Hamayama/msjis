@@ -1,3 +1,0 @@
-gosh> あいうえお
-#<undef>
-gosh> 

@@ -1,4 +1,4 @@
-＜msjis.scmの試験＞
+＜msjis.scmの試験記録＞
 
 
 1.試験対象
@@ -14,8 +14,8 @@
   Gauche : v0.9.4-rc0
 
 3.事前準備
-  msjis.scm を   c:\Program Files\Gauche\share\gauche-0.9\site\lib       にコピー
-   (64bit OSなら C:\Program Files (x86)\Gauche\share\gauche-0.9\site\lib にコピー)
+  msjis.scm を       c:\Program Files\Gauche\share\gauche-0.9\site\lib       にコピー
+   (64bit OSのときは C:\Program Files (x86)\Gauche\share\gauche-0.9\site\lib にコピー)
   test0001.scm を c:\ にコピー
   test0001_input.txt を c:\ にコピー
   test0002.scm を c:\ にコピー
@@ -69,10 +69,12 @@
         gosh c:\test0001.scm < c:\test0001_input.txt
    (j)リダイレクトの試験2               → 2014-6-2 OK
         gosh c:\test0002.scm < c:\test0002_input.txt
-   (k)リダイレクトの試験3               → 2014-6-2 OK (Windows8は管理者として実行が必要)(出力はUTF-8(BOMなし)で改行コードLFになる)
+   (k)リダイレクトの試験3               → 2014-6-2 OK (Windows8は管理者として実行が必要)
+                                                       (出力はUTF-8(BOMなし)で改行コードLFになる)
         gosh c:\test0001.scm > c:\test0001_output.txt
         あいうえお
-   (l)リダイレクトの試験4               → 2014-6-2 OK (Windows8は管理者として実行が必要)(出力はUTF-8(BOMなし)で改行コードLFになる)
+   (l)リダイレクトの試験4               → 2014-6-2 OK (Windows8は管理者として実行が必要)
+                                                       (出力はUTF-8(BOMなし)で改行コードLFになる)
         gosh c:\test0002.scm > c:\test0002_output.txt
         (print "あいうえお")
         (exit)
