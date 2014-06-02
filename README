@@ -1,0 +1,53 @@
+＜msjis＞
+
+
+1.概要
+  Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
+  簡易的に日本語(CP932)の表示と入力を可能とするモジュールです。
+
+
+2.インストール方法
+  msjis.scm を Gauche でロード可能なフォルダにコピーします。
+  (例えば C:\Program Files\Gauche\share\gauche-0.9\site\lib 等)
+
+
+3.使い方
+  対話環境にする場合
+   (use msjis)
+   (msjis-repl)
+
+  対話環境にしない場合
+   (use msjis)
+   (msjis-mode)
+
+
+4.注意事項
+  (1)Gauche の開発最新版が必要です(v0.9.3.3ではエラーになります)。
+  (2)コンソールの入出力についてのみ文字コードが変換されます。
+     (ファイル読み書きやリダイレクトの文字コードは変換されません)
+  (3)自動入力ツール等で大量の文字を一度に入力すると、エラーが
+     発生する場合があります。
+
+
+5.参考情報
+  (1)コマンドプロンプトで Gauche プログラミング - 主題のない日記
+     http://saito.hatenablog.jp/entry/2014/04/14/104006
+     (ここのコードを元に改造、デバッグしました。)
+
+  (2)How to redirect STDOUT generated using WriteConsole in kernel32.dll?
+     http://social.msdn.microsoft.com/Forums/vstudio/en-US/716f2f70-9eed-4b96-9f43-f967605f307f/how-to-redirect-stdout-generated-using-writeconsole-in-kernel32dll?forum=netfxbcl
+     (Win32APIのReadConsole(),WriteConsole()は、リダイレクトありのときは使えない。
+      リダイレクトの有無はGetConsoleMode()が成功するかどうかで判定できる。)
+
+
+6.環境等
+  OS   : Windows XP Home SP3
+         Windows 8 (64bit)
+  言語 : Gauche v0.9.4-rc0
+  でのみ動作確認。
+
+7.履歴
+2014-6-2  v1.00 (初版)
+
+
+(2014-6-2)
