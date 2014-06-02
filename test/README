@@ -15,7 +15,7 @@
 
 3.事前準備
   msjis.scm を       c:\Program Files\Gauche\share\gauche-0.9\site\lib       にコピー
-   (64bit OSのときは C:\Program Files (x86)\Gauche\share\gauche-0.9\site\lib にコピー)
+   (64bit OSのときは c:\Program Files (x86)\Gauche\share\gauche-0.9\site\lib にコピー)
   test0001.scm を c:\ にコピー
   test0001_input.txt を c:\ にコピー
   test0002.scm を c:\ にコピー
