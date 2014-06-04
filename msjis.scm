@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-4 v1.01
+;; 2014-6-4 v1.02
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -11,6 +11,7 @@
 ;;   (1)Gauche の開発最新版が必要です(v0.9.3.3ではエラーになります)。
 ;;   (2)コンソールの入出力についてのみ文字コードが変換されます。
 ;;      (ファイルの読み書きやリダイレクトの文字コードは変換されません)
+;;   (3)まれにキー入力を受け付けなくなることがあります(原因不明)。
 ;;
 ;; ＜インストール＞
 ;;   msjis.scm を Gauche でロード可能なフォルダにコピーします。
@@ -44,7 +45,9 @@
 (define (getc-console hdl)
   (let1 buf (make-u8vector 2 0)
     (sys-read-console hdl buf)
-    (string-ref (ces-convert (u8vector->string buf) 'UTF-16LE) 0)))
+    (let1 chr (string-ref (ces-convert (u8vector->string buf) 'UTF-16LE) 0)
+      ;(format #t "~8,'0x;" (char->integer chr))
+      chr)))
 
 ;; 1文字入力処理2(文字化け対策版)(ただしCP932専用)
 (define (getc-console2 hdl)
@@ -52,7 +55,9 @@
     (read-block! buf (standard-input-port) 0 1)
     ;; 2バイト文字のチェック(CP932専用)
     (if (>= (u8vector-ref buf 0) #x80) (read-block! buf (standard-input-port) 1 2))
-    (string-ref (ces-convert (u8vector->string buf) 'CP932) 0)))
+    (let1 chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0)
+      ;(format #t "~8,'0x;" (char->integer chr))
+      chr)))
 
 ;; 1文字出力処理
 (define (putc-console hdl chr)
