@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-4 v1.02
+;; 2014-6-4 v1.03
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -54,7 +54,9 @@
   (let1 buf (make-u8vector 2 0)
     (read-block! buf (standard-input-port) 0 1)
     ;; 2バイト文字のチェック(CP932専用)
-    (if (>= (u8vector-ref buf 0) #x80) (read-block! buf (standard-input-port) 1 2))
+    (let1 b (u8vector-ref buf 0)
+      (if (or (and (>= b #x81) (<= b #x9F)) (and (>= b #xE0) (<= b #xFC)))
+        (read-block! buf (standard-input-port) 1 2)))
     (let1 chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0)
       ;(format #t "~8,'0x;" (char->integer chr))
       chr)))
