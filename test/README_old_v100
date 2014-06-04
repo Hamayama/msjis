@@ -2,7 +2,7 @@
 
 
 1.試験対象
-  msjis.scm : 2014-6-4 v1.01
+  msjis.scm : 2014-6-2 v1.00
 
 2.試験環境
   PC1
@@ -24,7 +24,7 @@
 
 4.試験内容
 (1)コマンドプロンプトから起動
-   (a)msjis-replの試験                  → 2014-6-4 OK
+   (a)msjis-replの試験                  → 2014-6-2 OK
         gosh
         (use msjis)
         (msjis-repl)
@@ -37,70 +37,70 @@
         (print "あいうえお")
         (read-line)かきくけこ
         (exit)
-   (b)msjis-modeの試験                  → 2014-6-4 OK
+   (b)msjis-modeの試験                  → 2014-6-2 OK
         gosh
         (use msjis)
         (msjis-mode)
         以後は(a)の4番目からと同じ
-   (c)useの試験1                        → 2014-6-4 OK
+   (c)useの試験1                        → 2014-6-2 OK
         gosh -umsjis
         (msjis-repl)
         以後は(a)の4番目からと同じ
-   (d)useの試験2                        → 2014-6-4 OK
+   (d)useの試験2                        → 2014-6-2 OK
         gosh -umsjis
         (msjis-mode)
         以後は(a)の4番目からと同じ
-   (e)ファイルロードの試験1             → 2014-6-4 OK
+   (e)ファイルロードの試験1             → 2014-6-2 OK
         gosh c:\test0001.scm
         あいうえお
-   (f)ファイルロードの試験2             → 2014-6-4 OK
+   (f)ファイルロードの試験2             → 2014-6-2 OK
         gosh c:\test0002.scm
         (print "あいうえお")
         (exit)
-   (g)ファイルロードの試験3             → 2014-6-4 OK
+   (g)ファイルロードの試験3             → 2014-6-2 OK
         gosh -l"c:\test0001.scm"
         あいうえお
         (exit)
-   (h)ファイルロードの試験4             → 2014-6-4 OK
+   (h)ファイルロードの試験4             → 2014-6-2 OK
         gosh -l"c:\test0002.scm"
         (print "あいうえお")
         (exit)
-   (i)リダイレクトの試験1               → 2014-6-4 OK
+   (i)リダイレクトの試験1               → 2014-6-2 OK
         gosh c:\test0001.scm < c:\test0001_input.txt
-   (j)リダイレクトの試験2               → 2014-6-4 OK
+   (j)リダイレクトの試験2               → 2014-6-2 OK
         gosh c:\test0002.scm < c:\test0002_input.txt
-   (k)リダイレクトの試験3               → 2014-6-4 OK (Windows8は管理者として実行が必要)
+   (k)リダイレクトの試験3               → 2014-6-2 OK (Windows8は管理者として実行が必要)
                                                        (出力はUTF-8(BOMなし)で改行コードLFになる)
         gosh c:\test0001.scm > c:\test0001_output.txt
         あいうえお
-   (l)リダイレクトの試験4               → 2014-6-4 OK (Windows8は管理者として実行が必要)
+   (l)リダイレクトの試験4               → 2014-6-2 OK (Windows8は管理者として実行が必要)
                                                        (出力はUTF-8(BOMなし)で改行コードLFになる)
         gosh c:\test0002.scm > c:\test0002_output.txt
         (print "あいうえお")
         (exit)
 
 (2)Gaucheのショートカットから起動
-   (a)msjis-replの試験                  → 2014-6-4 OK
+   (a)msjis-replの試験                  → 2014-6-2 OK
         (use msjis)
         (msjis-repl)
         以後は(1)(a)の4番目からと同じ手順を実行
-   (b)msjis-modeの試験                  → 2014-6-4 OK
+   (b)msjis-modeの試験                  → 2014-6-2 OK
         (use msjis)
         (msjis-mode)
         以後は(1)(a)の4番目からと同じ手順を実行
-   (c)ファイルロードの試験1             → 2014-6-4 OK
+   (c)ファイルロードの試験1             → 2014-6-2 OK
         (load "c:/test0001.scm")
         あいうえお
         (exit)
-   (d)ファイルロードの試験2             → 2014-6-4 OK
+   (d)ファイルロードの試験2             → 2014-6-2 OK
         (load "c:/test0002.scm")
         (print "あいうえお")
         (exit)
 
-(3)バッチファイルから起動               → 2014-6-4 OK
+(3)バッチファイルから起動               → 2014-6-2 OK
    (1)の各項目の試験において、goshの起動をバッチファイルから行うようにする
 
-(4)負荷試験                             → 2014-6-4 OK
+(4)負荷試験                             → 2014-6-2 NG
    (1)(a)の3番目まで
    (1)(b)の3番目まで
    (2)(a)の2番目まで
@@ -109,5 +109,27 @@
    別アプリからSendKeysを用いて以下の文字列を連続送信する
      (print "あいうえおかきくけこさしすせそたちつてとなにぬねの")
 
+     ↓
+   Windows XP では以下のエラーがしばしば発生した(Windows 8 では発生せず)。
+   なぜか先頭が「g」の文字に化けて読み込まれる。
+   1行送信するごとに100msecくらい間隔を空ければ発生しない(2014-6-2)。
 
-(2014-6-4)
+     gosh> (print "あいうえおかきくけこさしすせそたちつてとなにぬねの")
+     *** ERROR: unbound variable: gprint
+     Stack Trace:
+     _______________________________________
+       0  gprint
+     
+       1  (eval expr env)
+             At line 179 of "C:\\Program Files\\Gauche\\share\\gauche-0.9\\0.9.4-rc0\
+     \lib/gauche/interactive.scm"
+     gosh> "あいうえおかきくけこさしすせそたちつてとなにぬねの"
+     gosh> *** READ-ERROR: Read error at "??":line 9: extra close parenthesis `)'
+     Stack Trace:
+     _______________________________________
+       0  (eval expr env)
+             At line 179 of "C:\\Program Files\\Gauche\\share\\gauche-0.9\\0.9.4-rc0\
+     \lib/gauche/interactive.scm"
+
+
+(2014-6-2)
