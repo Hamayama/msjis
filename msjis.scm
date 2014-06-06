@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-4 v1.03
+;; 2014-6-7 v1.04
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -15,7 +15,7 @@
 ;;
 ;; ＜インストール＞
 ;;   msjis.scm を Gauche でロード可能なフォルダにコピーします。
-;;   (例えば C:\Program Files\Gauche\share\gauche-0.9\site\lib 等)
+;;   (例えば (gauche-site-library-directory) で表示されるフォルダ等)
 ;;
 ;; ＜使い方＞
 ;;   対話環境にする場合
@@ -35,7 +35,7 @@
 (select-module msjis)
 
 ;; リダイレクトありかチェックする関数
-;; (リダイレクトの有無はGetConsoleMode()が成功するかどうかで判定できる)
+;; (リダイレクトの有無はWin32APIのGetConsoleMode()が成功するかどうかで判定できる)
 (define (redirected-handle? hdl)
   (guard (exc
           ((<system-error> exc) #t))
@@ -49,7 +49,7 @@
       ;(format #t "~8,'0x;" (char->integer chr))
       chr)))
 
-;; 1文字入力処理2(文字化け対策版)(ただしCP932専用)
+;; 1文字入力処理2(文字化け対策版。ただしCP932専用)
 (define (getc-console2 hdl)
   (let1 buf (make-u8vector 2 0)
     (read-block! buf (standard-input-port) 0 1)
