@@ -1,11 +1,24 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-9 v1.05
+;; 2014-6-10 v1.06
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
 ;;   日本語(CP932)の表示と入力を可能とするモジュールです。
+;;
+;; ＜インストール方法＞
+;;   msjis.scm を Gauche でロード可能なフォルダにコピーします。
+;;   (例えば (gauche-site-library-directory) で表示されるフォルダ等)
+;;
+;; ＜使い方＞
+;;   対話環境にする場合
+;;     (use msjis)
+;;     (msjis-repl)
+;;
+;;   対話環境にしない場合
+;;     (use msjis)
+;;     (msjis-mode)
 ;;
 ;; ＜注意事項＞
 ;;   (1)Gauche の開発最新版が必要です(v0.9.3.3ではエラーになります)。
@@ -23,19 +36,6 @@
 ;;      (msjis-repl2)もしくは(msjis-mode2)が使えるかもしれません。
 ;;      ただしエラーが発生する場合があります(原因不明)。
 ;;
-;; ＜インストール＞
-;;   msjis.scm を Gauche でロード可能なフォルダにコピーします。
-;;   (例えば (gauche-site-library-directory) で表示されるフォルダ等)
-;;
-;; ＜使い方＞
-;;   対話環境にする場合
-;;     (use msjis)
-;;     (msjis-repl)
-;;
-;;   対話環境にしない場合
-;;     (use msjis)
-;;     (msjis-mode)
-;;
 (define-module msjis
   (use gauche.charconv)
   (use gauche.vport)
@@ -44,6 +44,17 @@
   ;(use gauche.version)
   (export msjis-repl msjis-mode msjis-repl2 msjis-mode2))
 (select-module msjis)
+
+;; デバッグ表示
+(define (debug-print-str str)
+  (display str (standard-output-port))
+  (flush (standard-output-port)))
+(define (debug-print-char-code chr)
+  (format (standard-output-port) "~8,'0x;" (char->integer chr))
+  (flush (standard-output-port)))
+(define (debug-print-buffer buf)
+  (display (map (cut format #f "0x~2,'0X" <>) (u8vector->list buf)) (standard-output-port))
+  (flush (standard-output-port)))
 
 ;; リダイレクトありかチェックする関数
 ;; (リダイレクトの有無はWin32APIのGetConsoleMode()が成功するかどうかで判定できる)
@@ -54,7 +65,7 @@
 
 
 
-;; 1文字入出力の処理方式1
+;; 1文字入出力の処理方法1
 ;;   Win32APIのReadConsole()とWriteConsole()を使う。
 ;;   ＜既知の問題点＞
 ;;     (1)ReadConsole()
@@ -69,8 +80,9 @@
   (lambda ()
     (let1 buf (make-u8vector 2 0)
       (sys-read-console hdl buf)
+      ;(debug-print-buffer buf)
       (let1 chr (string-ref (ces-convert (u8vector->string buf) 'UTF-16LE) 0)
-        ;(format #t "~8,'0x;" (char->integer chr))
+        ;(debug-print-char-code chr)
         chr))))
 
 (define (make-putc-console hdl)
@@ -83,7 +95,7 @@
 
 
 
-;; 1文字入出力の処理方式2 (古い環境用)
+;; 1文字入出力の処理方法2 (古い環境用)
 ;;   read-block!とwrite-blockを使う。
 ;;   コードページがCP932であることが前提。
 ;;   ＜既知の問題点＞
@@ -110,21 +122,22 @@
       (let1 b (u8vector-ref buf 0)
         (if (or (and (>= b #x81) (<= b #x9F)) (and (>= b #xE0) (<= b #xFC)))
           (read-block! buf port 1 2)))
+      ;(debug-print-buffer buf)
       (let1 chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0)
-        ;(format #t "~8,'0x;" (char->integer chr))
+        ;(debug-print-char-code chr)
         chr))))
 
 (define (make-putc-console2 port)
   (lambda (chr)
     (let1 buf (string->u8vector (ces-convert (string chr) (gauche-character-encoding) 'CP932))
-      ;(display (map (cut format #f "0x~2,'0X" <>) (u8vector->list buf)) port)
+      ;(debug-print-buffer buf)
       (write-block buf port)
       (flush port))))
 
 (define (make-puts-console2 port)
   (lambda (str)
     (let1 buf (string->u8vector (ces-convert str (gauche-character-encoding) 'CP932))
-      ;(display (map (cut format #f "0x~2,'0X" <>) (u8vector->list buf)) port)
+      ;(debug-print-buffer buf)
       (write-block buf port)
       (flush port))))
 
@@ -137,7 +150,7 @@
       (if (not (= mode 2))
         (make <virtual-input-port> :getc (make-getc-console hdl))
         (let1 f1 (make-getc-console2 (standard-input-port))
-          ;(display "!1 " (standard-output-port))
+          ;(debug-print-str "!1 ")
           (make <virtual-input-port> :getc (cut f1)))
         ))))
 
@@ -149,7 +162,7 @@
         (make <virtual-output-port> :putc (make-putc-console hdl) :puts (make-puts-console hdl))
         (let ((f1 (make-putc-console2 (standard-output-port)))
               (f2 (make-puts-console2 (standard-output-port))))
-          ;(display "!2 " (standard-output-port))
+          ;(debug-print-str "!2 ")
           (make <virtual-output-port> :putc (cut f1 <>) :puts (cut f2 <>)))
         ))))
 
@@ -161,7 +174,7 @@
         (make <virtual-output-port> :putc (make-putc-console hdl) :puts (make-puts-console hdl))
         (let ((f1 (make-putc-console2 (standard-error-port)))
               (f2 (make-puts-console2 (standard-error-port))))
-          ;(display "!3 " (standard-output-port))
+          ;(debug-print-str "!3 ")
           (make <virtual-output-port> :putc (cut f1 <>) :puts (cut f2 <>)))
         ))))
 
