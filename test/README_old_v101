@@ -2,7 +2,7 @@
 
 
 1.試験対象
-  msjis.scm : 2014-6-9 v1.05
+  msjis.scm : 2014-6-4 v1.01
 
 2.試験環境
   PC1
@@ -12,7 +12,6 @@
     CPU : Core i5 3230 M 2.60GHz
     OS  : Windows 8 (64bit)
   Gauche : v0.9.4-rc0
-           v0.9.3.3
 
 3.事前準備
   msjis.scm を       c:\Program Files\Gauche\share\gauche-0.9\site\lib       にコピー
@@ -25,7 +24,7 @@
 
 4.試験内容
 (1)コマンドプロンプトから起動
-   (a)msjis-replの試験                  → 2014-6-9 OK+++
+   (a)msjis-replの試験                  → 2014-6-4 OK
         gosh
         (use msjis)
         (msjis-repl)
@@ -38,70 +37,70 @@
         (print "あいうえお")
         (read-line)かきくけこ
         (exit)
-   (b)msjis-modeの試験                  → 2014-6-9 OK+++
+   (b)msjis-modeの試験                  → 2014-6-4 OK
         gosh
         (use msjis)
         (msjis-mode)
         以後は(a)の4番目からと同じ
-   (c)useの試験1                        → 2014-6-9 OK+++
+   (c)useの試験1                        → 2014-6-4 OK
         gosh -umsjis
         (msjis-repl)
         以後は(a)の4番目からと同じ
-   (d)useの試験2                        → 2014-6-9 OK+++
+   (d)useの試験2                        → 2014-6-4 OK
         gosh -umsjis
         (msjis-mode)
         以後は(a)の4番目からと同じ
-   (e)ファイルロードの試験1             → 2014-6-9 OK+++
+   (e)ファイルロードの試験1             → 2014-6-4 OK
         gosh c:\test0001.scm
         あいうえお
-   (f)ファイルロードの試験2             → 2014-6-9 OK+++
+   (f)ファイルロードの試験2             → 2014-6-4 OK
         gosh c:\test0002.scm
         (print "あいうえお")
         (exit)
-   (g)ファイルロードの試験3             → 2014-6-9 OK+++
+   (g)ファイルロードの試験3             → 2014-6-4 OK
         gosh -l"c:\test0001.scm"
         あいうえお
         (exit)
-   (h)ファイルロードの試験4             → 2014-6-9 OK+++
+   (h)ファイルロードの試験4             → 2014-6-4 OK
         gosh -l"c:\test0002.scm"
         (print "あいうえお")
         (exit)
-   (i)リダイレクトの試験1               → 2014-6-9 OK+++
+   (i)リダイレクトの試験1               → 2014-6-4 OK
         gosh c:\test0001.scm < c:\test0001_input.txt
-   (j)リダイレクトの試験2               → 2014-6-9 OK+++
+   (j)リダイレクトの試験2               → 2014-6-4 OK
         gosh c:\test0002.scm < c:\test0002_input.txt
-   (k)リダイレクトの試験3               → 2014-6-9 OK+++ (Windows8は管理者として実行が必要)
+   (k)リダイレクトの試験3               → 2014-6-4 OK (Windows8は管理者として実行が必要)
                                                        (出力はUTF-8(BOMなし)で改行コードLFになる)
         gosh c:\test0001.scm > c:\test0001_output.txt
         あいうえお
-   (l)リダイレクトの試験4               → 2014-6-9 OK+++ (Windows8は管理者として実行が必要)
+   (l)リダイレクトの試験4               → 2014-6-4 OK (Windows8は管理者として実行が必要)
                                                        (出力はUTF-8(BOMなし)で改行コードLFになる)
         gosh c:\test0002.scm > c:\test0002_output.txt
         (print "あいうえお")
         (exit)
 
 (2)Gaucheのショートカットから起動
-   (a)msjis-replの試験                  → 2014-6-9 OK+++
+   (a)msjis-replの試験                  → 2014-6-4 OK
         (use msjis)
         (msjis-repl)
         以後は(1)(a)の4番目からと同じ手順を実行
-   (b)msjis-modeの試験                  → 2014-6-9 OK+++
+   (b)msjis-modeの試験                  → 2014-6-4 OK
         (use msjis)
         (msjis-mode)
         以後は(1)(a)の4番目からと同じ手順を実行
-   (c)ファイルロードの試験1             → 2014-6-9 OK+++
+   (c)ファイルロードの試験1             → 2014-6-4 OK
         (load "c:/test0001.scm")
         あいうえお
         (exit)
-   (d)ファイルロードの試験2             → 2014-6-9 OK+++
+   (d)ファイルロードの試験2             → 2014-6-4 OK
         (load "c:/test0002.scm")
         (print "あいうえお")
         (exit)
 
-(3)バッチファイルから起動               → 2014-6-9 OK+++
+(3)バッチファイルから起動               → 2014-6-4 OK
    (1)の各項目の試験において、goshの起動をバッチファイルから行うようにする
 
-(4)負荷試験                             → 2014-6-9 OK+++
+(4)負荷試験                             → 2014-6-4 OK
    (1)(a)の3番目まで
    (1)(b)の3番目まで
    (2)(a)の2番目まで
@@ -110,20 +109,11 @@
    別アプリからSendKeysを用いて以下の文字列を連続送信する
      (print "あいうえおかきくけこさしすせそたちつてとなにぬねの")
 
-     ↓
-   Windows XPで行頭の文字が「g」に化けて入力されて、エラーになる場合がある。
-   (msjis-repl2)および(msjis-mode2)を使えば該当PCでは回避できた。
+(5)その他                               → 2014-6-4 NG
+   Windows 8で試験中に2回ほど、キー入力を受け付けなくなることがあった。
+   このとき Ctrl+C を押すと gosh を終了してコマンド待ちに戻った。
+   その後、再現できず。
+   Windows XPでは発生せず。またv1.00のときは発生せず。
 
 
-(5)古い環境の試験                       → 2014-6-9 NG
-   Gauche v0.9.3.3 で (1)-(4)の試験を行う。
-   その際、(sjis-repl) のかわりに (sjis-repl2) を使う。
-           (sjis-mode) のかわりに (sjis-mode2) を使う。
-
-     ↓
-   Windows 8でリダイレクト入力時に、
-     *** SYSTEM-ERROR: read failed on #<iport (stdin) 00a8df50>: Bad file descriptor
-   が発生することがある。
-
-
-(2014-6-9)
+(2014-6-4)
