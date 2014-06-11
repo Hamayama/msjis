@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-10 v1.06
+;; 2014-6-11 v1.07
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -21,20 +21,11 @@
 ;;     (msjis-mode)
 ;;
 ;; ＜注意事項＞
-;;   (1)Gauche の開発最新版が必要です(v0.9.3.3ではエラーになります)。
-;;
-;;   (2)コンソールの入出力についてのみ文字コードが変換されます。
+;;   (1)コンソールの入出力についてのみ文字コードが変換されます。
 ;;      (ファイルの読み書きやリダイレクトの文字コードは変換されません)
 ;;
-;;   (3)Windows XPで入力文字が文字化けする場合があります(原因不明)。
-;;
-;;   (4)Windows 8でまれにキー入力を受け付けなくなることがあります。
+;;   (2)Windows 8でまれにキー入力を受け付けなくなることがあります。
 ;;      (このプログラム以外でも発生するのでコマンドプロンプトの問題かも)
-;;
-;;   (5)Windows XPで入力文字が文字化けする場合、もしくは、
-;;      Gaucheのバージョンがv0.9.3.3以下の場合は、
-;;      (msjis-repl2)もしくは(msjis-mode2)が使えるかもしれません。
-;;      ただしエラーが発生する場合があります(原因不明)。
 ;;
 (define-module msjis
   (use gauche.charconv)
@@ -50,10 +41,10 @@
   (display str (standard-output-port))
   (flush (standard-output-port)))
 (define (debug-print-char-code chr)
-  (format (standard-output-port) "~8,'0x;" (char->integer chr))
+  (format (standard-output-port) "~8,'0Xh" (char->integer chr))
   (flush (standard-output-port)))
 (define (debug-print-buffer buf)
-  (display (map (cut format #f "0x~2,'0X" <>) (u8vector->list buf)) (standard-output-port))
+  (display (map (cut format #f "~2,'0Xh" <>) (u8vector->list buf)) (standard-output-port))
   (flush (standard-output-port)))
 
 ;; リダイレクトありかチェックする関数
@@ -63,9 +54,18 @@
           ((<system-error> exc) #t))
          (sys-get-console-mode hdl) #f))
 
+;; ここで標準入出力のハンドルを保持しておくと
+;;   *** SYSTEM-ERROR: read failed on #<iport (stdin) 00a8df50>: Bad file descriptor
+;; や
+;;   *** SYSTEM-ERROR: write failed on #<oport (stdout) 00a8dee0>: Bad file descriptor
+;; というエラーが出なくなる。ガベージコレクションの関係か?
+(define stdin-handle  (sys-get-std-handle STD_INPUT_HANDLE))
+(define stdout-handle (sys-get-std-handle STD_OUTPUT_HANDLE))
+(define stderr-handle (sys-get-std-handle STD_ERROR_HANDLE))
 
 
-;; 1文字入出力の処理方法1
+
+;; 1文字入出力の処理方法1 (現在未使用)
 ;;   Win32APIのReadConsole()とWriteConsole()を使う。
 ;;   ＜既知の問題点＞
 ;;     (1)ReadConsole()
@@ -95,24 +95,9 @@
 
 
 
-;; 1文字入出力の処理方法2 (古い環境用)
+;; 1文字入出力の処理方法2 (現在使用)
 ;;   read-block!とwrite-blockを使う。
 ;;   コードページがCP932であることが前提。
-;;   ＜既知の問題点＞
-;;     (1)<virtual-input-port>の作成時に、cutで包んで渡さないと以下のエラーが出る。原因不明。
-;;          *** SYSTEM-ERROR: read failed on #<iport (stdin) 00a8df50>: Bad file descriptor
-;;        また、<virtual-output-port>の作成時にも、cutで包んで渡さないと以下のエラーが出る。
-;;          *** SYSTEM-ERROR: write failed on #<oport (stdout) 00a8dee0>: Bad file descriptor
-;;        どちらのエラーも最初しばらく動いてその後発生する。原因不明。
-;;
-;;     (2)Windows 8でリダイレクト入力時に、
-;;          *** SYSTEM-ERROR: read failed on #<iport (stdin) 00a8df50>: Bad file descriptor
-;;        が発生することがある。原因不明。
-;;
-;;     (3)このモジュールで(use gauche.version)を追加すると、
-;;        Windows XPでリダイレクト入力時に、
-;;          *** SYSTEM-ERROR: read failed on #<iport (stdin) 00a8df50>: Bad file descriptor
-;;        が常に発生する。原因不明。
 ;;
 (define (make-getc-console2 port)
   (lambda ()
@@ -144,62 +129,48 @@
 
 
 ;; 標準入力の変換ポートの作成
-(define (make-console-stdin-port mode)
+(define (make-console-stdin-port)
   (let1 hdl (sys-get-std-handle STD_INPUT_HANDLE)
     (if (redirected-handle? hdl) #f
-      (if (not (= mode 2))
-        (make <virtual-input-port> :getc (make-getc-console hdl))
-        (let1 f1 (make-getc-console2 (standard-input-port))
-          ;(debug-print-str "!1 ")
-          (make <virtual-input-port> :getc (cut f1)))
-        ))))
+      ;(make <virtual-input-port> :getc (make-getc-console hdl))
+      (make <virtual-input-port> :getc (make-getc-console2 (standard-input-port)))
+      )))
 
 ;; 標準出力の変換ポートの作成
-(define (make-console-stdout-port mode)
+(define (make-console-stdout-port)
   (let1 hdl (sys-get-std-handle STD_OUTPUT_HANDLE)
     (if (redirected-handle? hdl) #f
-      (if (not (= mode 2))
-        (make <virtual-output-port> :putc (make-putc-console hdl) :puts (make-puts-console hdl))
-        (let ((f1 (make-putc-console2 (standard-output-port)))
-              (f2 (make-puts-console2 (standard-output-port))))
-          ;(debug-print-str "!2 ")
-          (make <virtual-output-port> :putc (cut f1 <>) :puts (cut f2 <>)))
-        ))))
+      ;(make <virtual-output-port> :putc (make-putc-console hdl) :puts (make-puts-console hdl))
+      (make <virtual-output-port>
+            :putc (make-putc-console2 (standard-output-port))
+            :puts (make-puts-console2 (standard-output-port)))
+      )))
 
 ;; 標準エラー出力の変換ポートの作成
-(define (make-console-stderr-port mode)
+(define (make-console-stderr-port)
   (let1 hdl (sys-get-std-handle STD_ERROR_HANDLE)
     (if (redirected-handle? hdl) #f
-      (if (not (= mode 2))
-        (make <virtual-output-port> :putc (make-putc-console hdl) :puts (make-puts-console hdl))
-        (let ((f1 (make-putc-console2 (standard-error-port)))
-              (f2 (make-puts-console2 (standard-error-port))))
-          ;(debug-print-str "!3 ")
-          (make <virtual-output-port> :putc (cut f1 <>) :puts (cut f2 <>)))
-        ))))
+      ;(make <virtual-output-port> :putc (make-putc-console hdl) :puts (make-puts-console hdl))
+      (make <virtual-output-port>
+            :putc (make-putc-console2 (standard-error-port))
+            :puts (make-puts-console2 (standard-error-port)))
+      )))
 
 
 
 ;; 変換ポートを設定してREPLを起動する
-(define (msjis-repl :optional (mode 1))
-  (with-ports (make-console-stdin-port  mode)
-              (make-console-stdout-port mode)
-              (make-console-stderr-port mode)
+(define (msjis-repl)
+  (with-ports (make-console-stdin-port)
+              (make-console-stdout-port)
+              (make-console-stderr-port)
               (lambda ()
                 ;(print "MSJISモード")
                 (read-eval-print-loop))))
 
 ;; 変換ポートの設定のみ実施する
-(define (msjis-mode :optional (mode 1))
-  (if-let1 port (make-console-stdin-port  mode) (current-input-port  port))
-  (if-let1 port (make-console-stdout-port mode) (current-output-port port))
-  (if-let1 port (make-console-stderr-port mode) (current-error-port  port))
+(define (msjis-mode)
+  (if-let1 port (make-console-stdin-port)  (current-input-port  port))
+  (if-let1 port (make-console-stdout-port) (current-output-port port))
+  (if-let1 port (make-console-stderr-port) (current-error-port  port))
   (undefined))
-
-;; 古い環境用(エラーが発生する場合あり)
-(define (msjis-repl2)
-  (msjis-repl 2))
-
-(define (msjis-mode2)
-  (msjis-mode 2))
 
