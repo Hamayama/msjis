@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-11 v1.07
+;; 2014-6-11 v1.08
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -33,7 +33,7 @@
   (use gauche.uvector)
   (use os.windows)
   ;(use gauche.version)
-  (export msjis-repl msjis-mode msjis-repl2 msjis-mode2))
+  (export msjis-repl msjis-mode))
 (select-module msjis)
 
 ;; デバッグ表示
