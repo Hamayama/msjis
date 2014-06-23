@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-13 v1.09
+;; 2014-6-24 v1.10
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -49,23 +49,14 @@
   (flush (standard-output-port)))
 
 ;; リダイレクトありかチェックする関数
-;;   リダイレクトの有無はWin32APIのGetConsoleMode()が成功するかどうかで判定できる。
+;; (リダイレクトの有無はWin32APIのGetConsoleMode()が成功するかどうかで判定できる)
 (define (redirected-handle? hdl)
   (guard (exc
           ((<system-error> exc) #t))
          (sys-get-console-mode hdl) #f))
 
 ;; 標準入出力のハンドルの保持
-;;   ここで標準入出力のハンドルを保持しておかないと、
-;;     *** SYSTEM-ERROR: read failed on #<iport (stdin) 00a8df50>: Bad file descriptor
-;;   や
-;;     *** SYSTEM-ERROR: write failed on #<oport (stdout) 00a8dee0>: Bad file descriptor
-;;   というエラーが、しばらく動いた後に発生する。
-;;
-;;   どうもガベージコレクションのタイミングで、標準入出力が使えなくなるもよう。
-;;   実際、以下の3行をコメントアウトして変換ポートの設定後に(gc)を呼ぶと、
-;;   すぐに上記エラーが発生する。
-;;
+;; (保持しておかないとエラーになる。Gaucheの開発最新版では修正ずみ)
 (define stdin-handle  (sys-get-std-handle STD_INPUT_HANDLE))
 (define stdout-handle (sys-get-std-handle STD_OUTPUT_HANDLE))
 (define stderr-handle (sys-get-std-handle STD_ERROR_HANDLE))
