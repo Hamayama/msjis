@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-24 v1.10
+;; 2014-6-24 v1.11
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -56,7 +56,7 @@
          (sys-get-console-mode hdl) #f))
 
 ;; 標準入出力のハンドルの保持
-;; (保持しておかないとエラーになる。Gaucheの開発最新版では修正ずみ)
+;; (保持しておかないとエラーになる。Gauche v0.9.4-rc2では修正ずみ)
 (define stdin-handle  (sys-get-std-handle STD_INPUT_HANDLE))
 (define stdout-handle (sys-get-std-handle STD_OUTPUT_HANDLE))
 (define stderr-handle (sys-get-std-handle STD_ERROR_HANDLE))
@@ -72,7 +72,7 @@
 ;;     (2)WriteConsole()
 ;;          Gauche v0.9.3.3のsys-write-consoleが、内部でCP932→Unicodeの変換をしていて化ける。
 ;;          回避しようと事前にCP932に変換してから渡すと、今度は不完全文字列ということでエラー。
-;;          開発最新版では直っている(win-compat.c)。
+;;          Gauche v0.9.4-rc0では直っている(win-compat.c)。
 ;;
 (define (make-getc-console hdl)
   (lambda ()
