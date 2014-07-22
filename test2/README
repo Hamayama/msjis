@@ -34,6 +34,7 @@
 
 4.試験内容
 (1)コマンドプロンプトで以下を実行する   → 2014-7-22 OK+
+   (Windows 8では管理者として実行が必要)
    gosh c:\test0021A.scm < c:\test0021_input.txt  > c:\test0021_outputA.txt
    gosh c:\test0021B.scm < c:\test0021_input.txt  > c:\test0021_outputB.txt
    gosh c:\test0021C.scm < c:\test0021_inputC.txt > c:\test0021_outputC.txt
