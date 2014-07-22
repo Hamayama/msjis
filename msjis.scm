@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-7-22 v1.12
+;; 2014-7-22 v1.13
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -20,13 +20,13 @@
 ;;     (use msjis)
 ;;     (msjis-mode)
 ;;
-;;   リダイレクト時の動作の指定
+;;   リダイレクト時の動作の設定
 ;;     (msjis-repl) または (msjis-mode) に数値の引数をつけて呼び出すと、
-;;     リダイレクト時の動作を指定できます。以下の引数が使用可能です。
-;;       0 : リダイレクト時に変換なし(デフォルト)
-;;       1 : リダイレクト時に改行コード変換(LF→CRLF)あり
-;;       2 : リダイレクト時に文字コード変換(CP932変換)あり
-;;       3 : リダイレクト時に文字コード変換(CP932変換)と改行コード変換(LF→CRLF)あり
+;;     リダイレクト時の動作を設定できます。以下の引数が使用可能です。
+;;       0 : リダイレクト時には変換なし(デフォルト)
+;;       1 : リダイレクト時には改行コード変換(LF→CRLF)あり
+;;       2 : リダイレクト時には文字コード変換(CP932変換)あり
+;;       3 : リダイレクト時には文字コード変換(CP932変換)と改行コード変換(LF→CRLF)あり
 ;;     例えば (msjis-mode 1) とするとリダイレクト時には、
 ;;     改行コードLFをCRLFに変換して出力します。
 ;;
@@ -36,8 +36,6 @@
 ;;
 ;;   (2)Windows 8でまれにキー入力を受け付けなくなることがあります。
 ;;      (このプログラム以外でも発生するのでコマンドプロンプトの問題かも)
-;;
-;;   (3)Ctrl-Cで対話環境を抜ける場合、2回押す必要があります(原因不明)。
 ;;
 (define-module msjis
   (use gauche.charconv)
@@ -77,21 +75,26 @@
 ;;   read-block!とwrite-blockを使用。
 ;;   コードページがCP932であることが前提。
 ;;
-(define (make-getc-console port eofchk)
+(define (make-getc-console port)
   (lambda ()
     (let ((chr 0)
           (buf (make-u8vector 2 0))
-          (b   0))
-      (read-block! buf port 0 1)
+          (ret 0))
+      (set! ret (read-block! buf port 0 1))
       ;; CP932の2バイト文字のチェック
-      (set! b (u8vector-ref buf 0))
-      (if (or (and (>= b #x81) (<= b #x9F)) (and (>= b #xE0) (<= b #xFC)))
-        (read-block! buf port 1 2))
+      (if (not (eof-object? ret))
+        (let1 b (u8vector-ref buf 0)
+          (if (or (and (>= b #x81) (<= b #x9F)) (and (>= b #xE0) (<= b #xFC)))
+            (set! ret (read-block! buf port 1 2)))))
       ;(debug-print-buffer buf)
+      ;; 文字コードの変換(CP932→内部コード)
       (set! chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0))
       ;(debug-print-char-code chr)
-      ;; 終端チェックが必要なとき
-      (if (and eofchk (= b 0)) (set! chr (eof-object)))
+      ;; ファイル終端(EOF)のチェック
+      (if (eof-object? ret)
+        (begin
+          ;(debug-print-str "[EOF]")
+          (set! chr (eof-object))))
       chr)))
 
 (define (make-putc-console port c932 crlf)
@@ -104,10 +107,10 @@
 
 (define (puts-console-sub str port c932 crlf)
   (let1 buf 0
-    ;; 改行コード変換(LF→CRLF)を行うとき
+    ;; 改行コードの変換(LF→CRLF)
     (if crlf
       (set! str (regexp-replace-all #/\n/ str "\r\n")))
-    ;; 文字コード変換(CP932変換)を行うとき
+    ;; 文字コードの変換(内部コード→CP932)
     (if c932
       (set! buf (string->u8vector (ces-convert str (gauche-character-encoding) 'CP932)))
       (set! buf (string->u8vector str)))
@@ -119,15 +122,15 @@
 
 ;; 標準入力の変換ポートの作成
 (define (make-console-stdin-port rmode)
-  (receive (c932 crlf eofchk) (get-console-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
+  (receive (c932 crlf) (get-console-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
     (if (not c932)
       #f
       (make <virtual-input-port>
-            :getc (make-getc-console (standard-input-port) eofchk)))))
+            :getc (make-getc-console (standard-input-port))))))
 
 ;; 標準出力の変換ポートの作成
 (define (make-console-stdout-port rmode)
-  (receive (c932 crlf eofchk) (get-console-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
+  (receive (c932 crlf) (get-console-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
     (if (not (or c932 crlf))
       #f
       (make <virtual-output-port>
@@ -136,27 +139,25 @@
 
 ;; 標準エラー出力の変換ポートの作成
 (define (make-console-stderr-port rmode)
-  (receive (c932 crlf eofchk) (get-console-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
+  (receive (c932 crlf) (get-console-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
     (if (not (or c932 crlf))
       #f
       (make <virtual-output-port>
             :putc (make-putc-console (standard-error-port) c932 crlf)
             :puts (make-puts-console (standard-error-port) c932 crlf)))))
 
+;; 変換用パラメータの取得
 (define (get-console-param rmode hdl)
-  (let ((c932   #f)
-        (crlf   #f)
-        (eofchk #f))
+  (let ((c932 #f)
+        (crlf #f))
     (if (redirected-handle? hdl)
       (begin
         (if (or (= rmode 2) (= rmode 3)) (set! c932 #t))
-        (if (or (= rmode 1) (= rmode 3)) (set! crlf #t))
-        (set! eofchk #t))
+        (if (or (= rmode 1) (= rmode 3)) (set! crlf #t)))
       (begin
-        (set! c932   #t)
-        (set! crlf   #f)
-        (set! eofchk #f)))
-    (values c932 crlf eofchk)))
+        (set! c932 #t)
+        (set! crlf #f)))
+    (values c932 crlf)))
 
 
 
