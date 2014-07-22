@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-6-24 v1.11
+;; 2014-7-22 v1.12
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -20,9 +20,19 @@
 ;;     (use msjis)
 ;;     (msjis-mode)
 ;;
+;;   リダイレクト時の動作の指定
+;;     (msjis-repl) または (msjis-mode) に数値の引数をつけて呼び出すと、
+;;     リダイレクト時の動作を指定できます。以下の引数が使用可能です。
+;;       0 : リダイレクト時に変換なし(デフォルト)
+;;       1 : リダイレクト時に改行コード変換(LF→CRLF)あり
+;;       2 : リダイレクト時に文字コード変換(CP932変換)あり
+;;       3 : リダイレクト時に文字コード変換(CP932変換)と改行コード変換(LF→CRLF)あり
+;;     例えば (msjis-mode 1) とするとリダイレクト時には、
+;;     改行コードLFをCRLFに変換して出力します。
+;;
 ;; ＜注意事項＞
-;;   (1)コンソールの入出力についてのみ文字コードが変換されます。
-;;      (ファイルの読み書きやリダイレクトの文字コードは変換されません)
+;;   (1)コンソールの標準入力、標準出力、標準エラー出力についてのみ
+;;      文字コードが変換されます。
 ;;
 ;;   (2)Windows 8でまれにキー入力を受け付けなくなることがあります。
 ;;      (このプログラム以外でも発生するのでコマンドプロンプトの問題かも)
@@ -63,112 +73,106 @@
 
 
 
-;; 1文字入出力の処理方法1 (現在未使用)
-;;   Win32APIのReadConsole()とWriteConsole()を使う。
-;;   ＜既知の問題点＞
-;;     (1)ReadConsole()
-;;          Windows XPで行頭の文字が「g」に化けて入力されて、エラーになる場合がある。原因不明。
-;;
-;;     (2)WriteConsole()
-;;          Gauche v0.9.3.3のsys-write-consoleが、内部でCP932→Unicodeの変換をしていて化ける。
-;;          回避しようと事前にCP932に変換してから渡すと、今度は不完全文字列ということでエラー。
-;;          Gauche v0.9.4-rc0では直っている(win-compat.c)。
-;;
-(define (make-getc-console hdl)
-  (lambda ()
-    (let1 buf (make-u8vector 2 0)
-      (sys-read-console hdl buf)
-      ;(debug-print-buffer buf)
-      (let1 chr (string-ref (ces-convert (u8vector->string buf) 'UTF-16LE) 0)
-        ;(debug-print-char-code chr)
-        chr))))
-
-(define (make-putc-console hdl)
-  (lambda (chr)
-    (sys-write-console hdl (string chr))))
-
-(define (make-puts-console hdl)
-  (lambda (str)
-    (sys-write-console hdl str)))
-
-
-
-;; 1文字入出力の処理方法2 (現在使用)
-;;   read-block!とwrite-blockを使う。
+;; 1文字入出力の変換処理
+;;   read-block!とwrite-blockを使用。
 ;;   コードページがCP932であることが前提。
 ;;
-(define (make-getc-console2 port)
+(define (make-getc-console port eofchk)
   (lambda ()
-    (let1 buf (make-u8vector 2 0)
+    (let ((chr 0)
+          (buf (make-u8vector 2 0))
+          (b   0))
       (read-block! buf port 0 1)
       ;; CP932の2バイト文字のチェック
-      (let1 b (u8vector-ref buf 0)
-        (if (or (and (>= b #x81) (<= b #x9F)) (and (>= b #xE0) (<= b #xFC)))
-          (read-block! buf port 1 2)))
+      (set! b (u8vector-ref buf 0))
+      (if (or (and (>= b #x81) (<= b #x9F)) (and (>= b #xE0) (<= b #xFC)))
+        (read-block! buf port 1 2))
       ;(debug-print-buffer buf)
-      (let1 chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0)
-        ;(debug-print-char-code chr)
-        chr))))
+      (set! chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0))
+      ;(debug-print-char-code chr)
+      ;; 終端チェックが必要なとき
+      (if (and eofchk (= b 0)) (set! chr (eof-object)))
+      chr)))
 
-(define (make-putc-console2 port)
+(define (make-putc-console port c932 crlf)
   (lambda (chr)
-    (let1 buf (string->u8vector (ces-convert (string chr) (gauche-character-encoding) 'CP932))
-      ;(debug-print-buffer buf)
-      (write-block buf port)
-      (flush port))))
+    (puts-console-sub (string chr) port c932 crlf)))
 
-(define (make-puts-console2 port)
+(define (make-puts-console port c932 crlf)
   (lambda (str)
-    (let1 buf (string->u8vector (ces-convert str (gauche-character-encoding) 'CP932))
-      ;(debug-print-buffer buf)
-      (write-block buf port)
-      (flush port))))
+    (puts-console-sub str port c932 crlf)))
+
+(define (puts-console-sub str port c932 crlf)
+  (let1 buf 0
+    ;; 改行コード変換(LF→CRLF)を行うとき
+    (if crlf
+      (set! str (regexp-replace-all #/\n/ str "\r\n")))
+    ;; 文字コード変換(CP932変換)を行うとき
+    (if c932
+      (set! buf (string->u8vector (ces-convert str (gauche-character-encoding) 'CP932)))
+      (set! buf (string->u8vector str)))
+    ;(debug-print-buffer buf)
+    (write-block buf port)
+    (flush port)))
 
 
 
 ;; 標準入力の変換ポートの作成
-(define (make-console-stdin-port)
-  (let1 hdl (sys-get-std-handle STD_INPUT_HANDLE)
-    (if (redirected-handle? hdl) #f
-      ;(make <virtual-input-port> :getc (make-getc-console hdl))
-      (make <virtual-input-port> :getc (make-getc-console2 (standard-input-port)))
-      )))
+(define (make-console-stdin-port rmode)
+  (receive (c932 crlf eofchk) (get-console-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
+    (if (not c932)
+      #f
+      (make <virtual-input-port>
+            :getc (make-getc-console (standard-input-port) eofchk)))))
 
 ;; 標準出力の変換ポートの作成
-(define (make-console-stdout-port)
-  (let1 hdl (sys-get-std-handle STD_OUTPUT_HANDLE)
-    (if (redirected-handle? hdl) #f
-      ;(make <virtual-output-port> :putc (make-putc-console hdl) :puts (make-puts-console hdl))
+(define (make-console-stdout-port rmode)
+  (receive (c932 crlf eofchk) (get-console-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
+    (if (not (or c932 crlf))
+      #f
       (make <virtual-output-port>
-            :putc (make-putc-console2 (standard-output-port))
-            :puts (make-puts-console2 (standard-output-port)))
-      )))
+            :putc (make-putc-console (standard-output-port) c932 crlf)
+            :puts (make-puts-console (standard-output-port) c932 crlf)))))
 
 ;; 標準エラー出力の変換ポートの作成
-(define (make-console-stderr-port)
-  (let1 hdl (sys-get-std-handle STD_ERROR_HANDLE)
-    (if (redirected-handle? hdl) #f
-      ;(make <virtual-output-port> :putc (make-putc-console hdl) :puts (make-puts-console hdl))
+(define (make-console-stderr-port rmode)
+  (receive (c932 crlf eofchk) (get-console-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
+    (if (not (or c932 crlf))
+      #f
       (make <virtual-output-port>
-            :putc (make-putc-console2 (standard-error-port))
-            :puts (make-puts-console2 (standard-error-port)))
-      )))
+            :putc (make-putc-console (standard-error-port) c932 crlf)
+            :puts (make-puts-console (standard-error-port) c932 crlf)))))
+
+(define (get-console-param rmode hdl)
+  (let ((c932   #f)
+        (crlf   #f)
+        (eofchk #f))
+    (if (redirected-handle? hdl)
+      (begin
+        (if (or (= rmode 2) (= rmode 3)) (set! c932 #t))
+        (if (or (= rmode 1) (= rmode 3)) (set! crlf #t))
+        (set! eofchk #t))
+      (begin
+        (set! c932   #t)
+        (set! crlf   #f)
+        (set! eofchk #f)))
+    (values c932 crlf eofchk)))
 
 
 
 ;; 変換ポートを設定してREPLを起動する
-(define (msjis-repl)
-  (with-ports (make-console-stdin-port)
-              (make-console-stdout-port)
-              (make-console-stderr-port)
+(define (msjis-repl :optional (rmode 0))
+  (with-ports (make-console-stdin-port  rmode)
+              (make-console-stdout-port rmode)
+              (make-console-stderr-port rmode)
               (lambda ()
                 ;(print "MSJISモード")
                 (read-eval-print-loop))))
 
 ;; 変換ポートの設定のみ実施する
-(define (msjis-mode)
-  (if-let1 port (make-console-stdin-port)  (current-input-port  port))
-  (if-let1 port (make-console-stdout-port) (current-output-port port))
-  (if-let1 port (make-console-stderr-port) (current-error-port  port))
+(define (msjis-mode :optional (rmode 0))
+  (if-let1 port (make-console-stdin-port  rmode) (current-input-port  port))
+  (if-let1 port (make-console-stdout-port rmode) (current-output-port port))
+  (if-let1 port (make-console-stderr-port rmode) (current-error-port  port))
   (undefined))
 

@@ -1,0 +1,59 @@
+＜msjis.scmの試験記録2＞
+
+
+1.試験対象
+  msjis.scm : 2014-7-22 v1.12
+
+2.試験環境
+  PC1
+    CPU : Celeron(R) M 430 1.73GHz
+    OS  : Windows XP Home SP3
+  PC2
+    CPU : Core i5 3230 M 2.60GHz
+    OS  : Windows 8 (64bit)
+  Gauche : v0.9.4
+           v0.9.3.3
+
+3.事前準備
+  msjis.scm を       c:\Program Files\Gauche\share\gauche-0.9\site\lib       にコピー
+   (64bit OSのときは c:\Program Files (x86)\Gauche\share\gauche-0.9\site\lib にコピー)
+  以下のファイルを c:\ にコピー
+  test0021A.scm        ((msjis-mode 0)のテスト)
+  test0021B.scm        ((msjis-mode 1)のテスト)
+  test0021C.scm        ((msjis-mode 2)のテスト)
+  test0021D.scm        ((msjis-mode 3)のテスト)
+  test0021_input.txt   (UTF-8(BOMなし)のデータファイル)
+  test0021_inputC.txt  (シフトJISのデータファイル)
+  test0022A.scm        ((msjis-repl 0)のテスト)
+  test0022B.scm        ((msjis-repl 1)のテスト)
+  test0022C.scm        ((msjis-repl 2)のテスト)
+  test0022D.scm        ((msjis-repl 3)のテスト)
+  test0022_input.txt   (UTF-8(BOMなし)のデータファイル)
+  test0022_inputC.txt  (シフトJISのデータファイル)
+
+
+4.試験内容
+(1)コマンドプロンプトで以下を実行する   → 2014-7-22 OK+
+   gosh c:\test0021A.scm < c:\test0021_input.txt  > c:\test0021_outputA.txt
+   gosh c:\test0021B.scm < c:\test0021_input.txt  > c:\test0021_outputB.txt
+   gosh c:\test0021C.scm < c:\test0021_inputC.txt > c:\test0021_outputC.txt
+   gosh c:\test0021D.scm < c:\test0021_inputC.txt > c:\test0021_outputD.txt
+   gosh c:\test0022A.scm < c:\test0022_input.txt  > c:\test0022_outputA.txt
+   gosh c:\test0022B.scm < c:\test0022_input.txt  > c:\test0022_outputB.txt
+   gosh c:\test0022C.scm < c:\test0022_inputC.txt > c:\test0022_outputC.txt
+   gosh c:\test0022D.scm < c:\test0022_inputC.txt > c:\test0022_outputD.txt
+
+   c:\test0021_outputA.txt がUTF-8(BOMなし)で改行コードLFのファイルであること。
+   c:\test0021_outputB.txt がUTF-8(BOMなし)で改行コードCRLFのファイルであること。
+   c:\test0021_outputC.txt がシフトJISで改行コードLFのファイルであること。
+   c:\test0021_outputD.txt がシフトJISで改行コードCRLFのファイルであること。
+   c:\test0022_outputA.txt がUTF-8(BOMなし)で改行コードLFのファイルであること。
+   c:\test0022_outputB.txt がUTF-8(BOMなし)で改行コードCRLFのファイルであること。
+   c:\test0022_outputC.txt がシフトJISで改行コードLFのファイルであること。
+   c:\test0022_outputD.txt がシフトJISで改行コードCRLFのファイルであること。
+
+(2)古い環境の試験
+   Gauche v0.9.3.3 で (1)の試験を行う。 → 2014-7-22 OK+
+
+
+(2014-7-22)
