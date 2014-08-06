@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-7-22 v1.13
+;; 2014-8-6 v1.14
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -123,28 +123,28 @@
 ;; 標準入力の変換ポートの作成
 (define (make-console-stdin-port rmode)
   (receive (c932 crlf) (get-console-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
-    (if (not c932)
-      #f
+    (if c932
       (make <virtual-input-port>
-            :getc (make-getc-console (standard-input-port))))))
+            :getc (make-getc-console (standard-input-port)))
+      #f)))
 
 ;; 標準出力の変換ポートの作成
 (define (make-console-stdout-port rmode)
   (receive (c932 crlf) (get-console-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
-    (if (not (or c932 crlf))
-      #f
+    (if (or c932 crlf)
       (make <virtual-output-port>
             :putc (make-putc-console (standard-output-port) c932 crlf)
-            :puts (make-puts-console (standard-output-port) c932 crlf)))))
+            :puts (make-puts-console (standard-output-port) c932 crlf))
+      #f)))
 
 ;; 標準エラー出力の変換ポートの作成
 (define (make-console-stderr-port rmode)
   (receive (c932 crlf) (get-console-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
-    (if (not (or c932 crlf))
-      #f
+    (if (or c932 crlf)
       (make <virtual-output-port>
             :putc (make-putc-console (standard-error-port) c932 crlf)
-            :puts (make-puts-console (standard-error-port) c932 crlf)))))
+            :puts (make-puts-console (standard-error-port) c932 crlf))
+      #f)))
 
 ;; 変換用パラメータの取得
 (define (get-console-param rmode hdl)
@@ -166,9 +166,7 @@
   (with-ports (make-console-stdin-port  rmode)
               (make-console-stdout-port rmode)
               (make-console-stderr-port rmode)
-              (lambda ()
-                ;(print "MSJISモード")
-                (read-eval-print-loop))))
+              (lambda () (read-eval-print-loop))))
 
 ;; 変換ポートの設定のみ実施する
 (define (msjis-mode :optional (rmode 0))
