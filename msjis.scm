@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-8-6 v1.14
+;; 2014-8-7 v1.15
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -91,10 +91,9 @@
       (set! chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0))
       ;(debug-print-char-code chr)
       ;; ファイル終端(EOF)のチェック
-      (if (eof-object? ret)
-        (begin
-          ;(debug-print-str "[EOF]")
-          (set! chr (eof-object))))
+      (when (eof-object? ret)
+        ;(debug-print-str "[EOF]")
+        (set! chr (eof-object)))
       chr)))
 
 (define (make-putc-console port c932 crlf)
@@ -150,13 +149,12 @@
 (define (get-console-param rmode hdl)
   (let ((c932 #f)
         (crlf #f))
-    (if (redirected-handle? hdl)
-      (begin
-        (if (or (= rmode 2) (= rmode 3)) (set! c932 #t))
-        (if (or (= rmode 1) (= rmode 3)) (set! crlf #t)))
-      (begin
-        (set! c932 #t)
-        (set! crlf #f)))
+    (cond ((redirected-handle? hdl)
+           (if (or (= rmode 2) (= rmode 3)) (set! c932 #t))
+           (if (or (= rmode 1) (= rmode 3)) (set! crlf #t)))
+          (else
+           (set! c932 #t)
+           (set! crlf #f)))
     (values c932 crlf)))
 
 
