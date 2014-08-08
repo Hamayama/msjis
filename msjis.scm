@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-8-7 v1.15
+;; 2014-8-8 v1.16
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -61,7 +61,7 @@
 (define (redirected-handle? hdl)
   (guard (exc
           ((<system-error> exc) #t))
-         (sys-get-console-mode hdl) #f))
+    (sys-get-console-mode hdl) #f))
 
 ;; 標準入出力のハンドルの保持
 ;; (保持しておかないとエラーになる。Gauche v0.9.4-rc2では修正ずみ)
