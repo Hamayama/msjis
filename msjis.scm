@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-9-11 v1.17
+;; 2014-9-13 v1.18
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -83,23 +83,26 @@
 ;;
 (define (make-msjis-port-getc port)
   (lambda ()
-    (let ((chr 0)
-          (buf (make-u8vector 2 0))
-          (ret 0))
-      (set! ret (read-block! buf port 0 1))
+    (let* ((chr 0)
+           (buf (make-u8vector 2 0))
+           (ret (read-block! buf port 0 1)))
       ;; CP932の2バイト文字のチェック
       (if (not (eof-object? ret))
         (let1 b (u8vector-ref buf 0)
           (if (or (and (>= b #x81) (<= b #x9F)) (and (>= b #xE0) (<= b #xFC)))
             (set! ret (read-block! buf port 1 2)))))
       ;(debug-print-buffer buf)
-      ;; 文字コードの変換(CP932→内部コード)
-      (set! chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0))
-      ;(debug-print-char-code chr)
-      ;; ファイル終端(EOF)のチェック
-      (when (eof-object? ret)
+      (cond
+       ;; ファイル終端(EOF)のチェック
+       ((eof-object? ret)
+        (set! chr (eof-object))
         ;(debug-print-str "[EOF]")
-        (set! chr (eof-object)))
+        )
+       ;; 文字コードの変換(CP932→内部コード)
+       (else
+        (set! chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0))
+        ;(debug-print-char-code chr)
+        ))
       chr)))
 
 (define (make-msjis-port-putc port c932 crlf)

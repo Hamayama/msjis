@@ -90,6 +90,7 @@
 - 2014-8-7  v1.15 一部処理見直し
 - 2014-8-8  v1.16 インデント修正のみ
 - 2014-9-11 v1.17 msjis-replを削除、make-msjis-stdin-port, make-msjis-stdout-port, make-msjis-stderr-portを追加
+- 2014-9-13 v1.18 一部処理見直し
 
 
-(2014-9-11)
+(2014-9-13)
