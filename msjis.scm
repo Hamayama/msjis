@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-9-13 v1.19
+;; 2014-9-23 v1.20
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -67,8 +67,7 @@
 ;; リダイレクトありかチェックする関数
 ;; (リダイレクトの有無はWin32APIのGetConsoleMode()が成功するかどうかで判定できる)
 (define (redirected-handle? hdl)
-  (guard (exc
-          ((<system-error> exc) #t))
+  (guard (exc ((<system-error> exc) #t))
     (sys-get-console-mode hdl) #f))
 
 ;; 標準入出力のハンドルの保持
@@ -83,7 +82,7 @@
 ;;   read-block!とwrite-blockを使用。
 ;;   コードページがCP932であることが前提。
 ;;
-(define (make-msjis-port-getc port)
+(define (make-msjis-getc port)
   (lambda ()
     (let* ((chr 0)
            (buf (make-u8vector 2 0))
@@ -107,15 +106,15 @@
         ))
       chr)))
 
-(define (make-msjis-port-putc port c932 crlf)
+(define (make-msjis-putc port c932 crlf)
   (lambda (chr)
-    (msjis-port-puts-sub (string chr) port c932 crlf)))
+    (msjis-puts-sub (string chr) port c932 crlf)))
 
-(define (make-msjis-port-puts port c932 crlf)
+(define (make-msjis-puts port c932 crlf)
   (lambda (str)
-    (msjis-port-puts-sub str port c932 crlf)))
+    (msjis-puts-sub str port c932 crlf)))
 
-(define (msjis-port-puts-sub str port c932 crlf)
+(define (msjis-puts-sub str port c932 crlf)
   (let1 buf 0
     ;; 改行コードの変換(LF→CRLF)
     (if crlf
@@ -132,32 +131,32 @@
 
 ;; 標準入力の変換ポートの作成
 (define (make-msjis-stdin-port :optional (rmode 0))
-  (receive (c932 crlf) (get-msjis-port-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
+  (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
     (if c932
       (make <virtual-input-port>
-            :getc (make-msjis-port-getc (standard-input-port)))
+            :getc (make-msjis-getc (standard-input-port)))
       #f)))
 
 ;; 標準出力の変換ポートの作成
 (define (make-msjis-stdout-port :optional (rmode 0))
-  (receive (c932 crlf) (get-msjis-port-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
+  (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
     (if (or c932 crlf)
       (make <virtual-output-port>
-            :putc (make-msjis-port-putc (standard-output-port) c932 crlf)
-            :puts (make-msjis-port-puts (standard-output-port) c932 crlf))
+            :putc (make-msjis-putc (standard-output-port) c932 crlf)
+            :puts (make-msjis-puts (standard-output-port) c932 crlf))
       #f)))
 
 ;; 標準エラー出力の変換ポートの作成
 (define (make-msjis-stderr-port :optional (rmode 0))
-  (receive (c932 crlf) (get-msjis-port-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
+  (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
     (if (or c932 crlf)
       (make <virtual-output-port>
-            :putc (make-msjis-port-putc (standard-error-port) c932 crlf)
-            :puts (make-msjis-port-puts (standard-error-port) c932 crlf))
+            :putc (make-msjis-putc (standard-error-port) c932 crlf)
+            :puts (make-msjis-puts (standard-error-port) c932 crlf))
       #f)))
 
 ;; 変換用パラメータの取得
-(define (get-msjis-port-param rmode hdl)
+(define (get-msjis-param rmode hdl)
   (let ((c932 #f)
         (crlf #f))
     (cond ((redirected-handle? hdl)
