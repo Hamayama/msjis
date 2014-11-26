@@ -1,48 +1,14 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-11-22 v1.21
+;; 2014-11-26 v1.22
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
 ;;   日本語(CP932)の表示と入力を可能とするモジュールです。
 ;;
-;; ＜インストール方法＞
-;;   msjis.scm を Gauche でロード可能なフォルダにコピーします。
-;;   (例えば (gauche-site-library-directory) で表示されるフォルダ等)
-;;
-;; ＜使い方＞
-;;   以下を実行します。
-;;     (use msjis)
-;;     (msjis-mode)
-;;   以後、(print "あいうえお") 等で日本語を表示できます。
-;;
-;;   リダイレクト時の動作の設定
-;;     (msjis-mode) の実行時に数値の引数をつけて呼び出すと、
-;;     リダイレクト時の動作を設定できます。以下の引数が使用可能です。
-;;       0 : リダイレクト時には変換なし(デフォルト)
-;;       1 : リダイレクト時には改行コード変換(LF→CRLF)あり
-;;       2 : リダイレクト時には文字コード変換(CP932変換)あり
-;;       3 : リダイレクト時には文字コード変換(CP932変換)と改行コード変換(LF→CRLF)あり
-;;     例えば (msjis-mode 1) とするとリダイレクト時には、
-;;     改行コードLFをCRLFに変換して出力します。
-;;
-;;   個別の変換ポートが必要な場合
-;;     個別の変換ポートが必要な場合は、以下を使用してください。
-;;       (make-msjis-stdin-port)   標準入力の変換ポートを作成して返します
-;;       (make-msjis-stdout-port)  標準出力の変換ポートを作成して返します
-;;       (make-msjis-stderr-port)  標準エラー出力の変換ポートを作成して返します
-;;     これらの手続きは、(msjis-mode) と同じ引数でリダイレクト時の動作を設定することもできます。
-;;     また、これらの手続きは、変換が不要な場合には #f を返すため注意してください。
-;;
-;; ＜注意事項＞
-;;   (1)コンソールの標準入力、標準出力、標準エラー出力についてのみ
-;;      文字コードが変換されます。
-;;
-;;   (2)1文字ずつ変換するため、その分の時間がかかります。
-;;
-;;   (3)CP932に存在しない文字を変換するとエラーになります。
-;;      (例えば (print #\x100) 等)
+;;   詳細については、以下のページを参照ください。
+;;   https://github.com/Hamayama/msjis
 ;;
 (define-module msjis
   (use gauche.charconv)
@@ -85,7 +51,7 @@
 ;;   read-block!とwrite-blockを使用。
 ;;   コードページがCP932であることが前提。
 ;;
-(define (make-msjis-getc port)
+(define (make-msjis-getc port ces)
   (lambda ()
     (let* ((chr 0)
            (buf (make-u8vector 2 0))
@@ -104,27 +70,27 @@
         )
        ;; 文字コードの変換(CP932→内部コード)
        (else
-        (set! chr (string-ref (ces-convert (u8vector->string buf) 'CP932) 0))
+        (set! chr (string-ref (ces-convert (u8vector->string buf) ces) 0))
         ;(debug-print-char-code chr)
         ))
       chr)))
 
-(define (make-msjis-putc port c932 crlf)
+(define (make-msjis-putc port c932 crlf ces)
   (lambda (chr)
-    (msjis-puts-sub (string chr) port c932 crlf)))
+    (msjis-puts-sub (string chr) port c932 crlf ces)))
 
-(define (make-msjis-puts port c932 crlf)
+(define (make-msjis-puts port c932 crlf ces)
   (lambda (str)
-    (msjis-puts-sub str port c932 crlf)))
+    (msjis-puts-sub str port c932 crlf ces)))
 
-(define (msjis-puts-sub str port c932 crlf)
+(define (msjis-puts-sub str port c932 crlf ces)
   (let1 buf 0
     ;; 改行コードの変換(LF→CRLF)
     (if crlf
       (set! str (regexp-replace-all #/\n/ str "\r\n")))
     ;; 文字コードの変換(内部コード→CP932)
     (if c932
-      (set! buf (string->u8vector (ces-convert str (gauche-character-encoding) 'CP932)))
+      (set! buf (string->u8vector (ces-convert str (gauche-character-encoding) ces)))
       (set! buf (string->u8vector str)))
     ;(debug-print-buffer buf)
     (write-block buf port)
@@ -133,29 +99,29 @@
 
 
 ;; 標準入力の変換ポートの作成
-(define (make-msjis-stdin-port :optional (rmode 0))
+(define (make-msjis-stdin-port :optional (rmode 0) (ces 'CP932))
   (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
     (if c932
       (make <virtual-input-port>
-            :getc (make-msjis-getc (standard-input-port)))
+            :getc (make-msjis-getc (standard-input-port) ces))
       #f)))
 
 ;; 標準出力の変換ポートの作成
-(define (make-msjis-stdout-port :optional (rmode 0))
+(define (make-msjis-stdout-port :optional (rmode 0) (ces 'CP932))
   (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
     (if (or c932 crlf)
       (make <virtual-output-port>
-            :putc (make-msjis-putc (standard-output-port) c932 crlf)
-            :puts (make-msjis-puts (standard-output-port) c932 crlf))
+            :putc (make-msjis-putc (standard-output-port) c932 crlf ces)
+            :puts (make-msjis-puts (standard-output-port) c932 crlf ces))
       #f)))
 
 ;; 標準エラー出力の変換ポートの作成
-(define (make-msjis-stderr-port :optional (rmode 0))
+(define (make-msjis-stderr-port :optional (rmode 0) (ces 'CP932))
   (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
     (if (or c932 crlf)
       (make <virtual-output-port>
-            :putc (make-msjis-putc (standard-error-port) c932 crlf)
-            :puts (make-msjis-puts (standard-error-port) c932 crlf))
+            :putc (make-msjis-putc (standard-error-port) c932 crlf ces)
+            :puts (make-msjis-puts (standard-error-port) c932 crlf ces))
       #f)))
 
 ;; 変換用パラメータの取得
@@ -173,9 +139,9 @@
 
 
 ;; 変換ポートの設定
-(define (msjis-mode :optional (rmode 0))
-  (if-let1 port (make-msjis-stdin-port  rmode) (current-input-port  port))
-  (if-let1 port (make-msjis-stdout-port rmode) (current-output-port port))
-  (if-let1 port (make-msjis-stderr-port rmode) (current-error-port  port))
+(define (msjis-mode :optional (rmode 0) (ces 'CP932))
+  (if-let1 port (make-msjis-stdin-port  rmode ces) (current-input-port  port))
+  (if-let1 port (make-msjis-stdout-port rmode ces) (current-output-port port))
+  (if-let1 port (make-msjis-stderr-port rmode ces) (current-error-port  port))
   (undefined))
 
