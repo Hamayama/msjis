@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-11-26 v1.22
+;; 2014-12-4 v1.23
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -103,7 +103,7 @@
   (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
     (if c932
       (make <virtual-input-port>
-            :getc (make-msjis-getc (standard-input-port) ces))
+        :getc (make-msjis-getc (standard-input-port) ces))
       #f)))
 
 ;; 標準出力の変換ポートの作成
@@ -111,8 +111,8 @@
   (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
     (if (or c932 crlf)
       (make <virtual-output-port>
-            :putc (make-msjis-putc (standard-output-port) c932 crlf ces)
-            :puts (make-msjis-puts (standard-output-port) c932 crlf ces))
+        :putc (make-msjis-putc (standard-output-port) c932 crlf ces)
+        :puts (make-msjis-puts (standard-output-port) c932 crlf ces))
       #f)))
 
 ;; 標準エラー出力の変換ポートの作成
@@ -120,8 +120,8 @@
   (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
     (if (or c932 crlf)
       (make <virtual-output-port>
-            :putc (make-msjis-putc (standard-error-port) c932 crlf ces)
-            :puts (make-msjis-puts (standard-error-port) c932 crlf ces))
+        :putc (make-msjis-putc (standard-error-port) c932 crlf ces)
+        :puts (make-msjis-puts (standard-error-port) c932 crlf ces))
       #f)))
 
 ;; 変換用パラメータの取得
