@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2014-12-4 v1.23
+;; 2015-2-2 v1.24
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -48,100 +48,168 @@
 
 
 ;; 1文字入出力の変換処理
-;;   read-block!とwrite-blockを使用。
-;;   コードページがCP932であることが前提。
-;;
-(define (make-msjis-getc port ces)
+(define (make-msjis-getc port rdir hdl ces userwc)
   (lambda ()
-    (let* ((chr 0)
-           (buf (make-u8vector 2 0))
-           (ret (read-block! buf port 0 1)))
-      ;; CP932の2バイト文字のチェック
-      (if (not (eof-object? ret))
-        (let1 b (u8vector-ref buf 0)
-          (if (or (and (>= b #x81) (<= b #x9F)) (and (>= b #xE0) (<= b #xFC)))
-            (set! ret (read-block! buf port 1 2)))))
-      ;(debug-print-buffer buf)
+    (if (and (not rdir) userwc)
+      ;; リダイレクトなしでWin32APIのReadConsole()使用のとき
+      (msjis-getc-sub1 hdl)
+      ;; その他のとき
+      (msjis-getc-sub2 port ces))))
+
+(define (msjis-getc-sub1 hdl)
+  (let ((chr  #\null)
+        (str  "")
+        (done #f)
+        (i    0)
+        (buf  (make-u8vector 4 0)) ; MB_LEN_MAX
+        (buf2 (make-u8vector 2 0))
+        (ret  0))
+    ;; 文字が完成するまで2バイトずつ読み込む
+    (while (not done)
+      (u8vector-fill! buf2 0)
+      (set! ret (sys-read-console hdl buf2))
+      (u8vector-copy! buf i buf2)
       (cond
-       ;; ファイル終端(EOF)のチェック
+       ;; ファイル終端(EOF)のとき
+       ((= ret 0)
+        (set! chr (eof-object))
+        ;(debug-print-str "[EOF]")
+        (set! done #t))
+       ;; ファイル終端(EOF)以外のとき
+       (else
+        ;; 文字コードの変換(外部コード→内部コード)
+        (set! str (ces-convert (u8vector->string (u8vector-copy buf 0 (+ i 2))) 'UTF-16LE))
+        (cond
+         ;; 文字が完成したとき
+         ((> (string-length str) 0)
+          (set! chr (string-ref str 0))
+          ;(debug-print-char-code chr)
+          (set! done #t))
+         ;; 文字が未完成のとき
+         (else
+          (set! i (+ i 2))
+          (if (>= i (u8vector-length buf))
+            (set! done #t))
+          )))))
+    ;(debug-print-buffer (u8vector-copy buf 0 (+ i 2)))
+    chr))
+
+(define (msjis-getc-sub2 port ces)
+  (let ((chr  #\null)
+        (str  "")
+        (done #f)
+        (i    0)
+        (buf  (make-u8vector 6 0)) ; MB_LEN_MAX
+        (ret  0))
+    ;; 文字が完成するまで1バイトずつ読み込む
+    (while (not done)
+      (set! ret (read-block! buf port i (+ i 1)))
+      (cond
+       ;; ファイル終端(EOF)のとき
        ((eof-object? ret)
         (set! chr (eof-object))
         ;(debug-print-str "[EOF]")
-        )
-       ;; 文字コードの変換(CP932→内部コード)
+        (set! done #t))
+       ;; ファイル終端(EOF)以外のとき
        (else
-        (set! chr (string-ref (ces-convert (u8vector->string buf) ces) 0))
-        ;(debug-print-char-code chr)
-        ))
-      chr)))
+        ;; 文字コードの変換(外部コード→内部コード)
+        (set! str (ces-convert (u8vector->string (u8vector-copy buf 0 (+ i 1))) ces))
+        (cond
+         ;; 文字が完成したとき
+         ((> (string-length str) 0)
+          (set! chr (string-ref str 0))
+          ;(debug-print-char-code chr)
+          (set! done #t))
+         ;; 文字が未完成のとき
+         (else
+          (inc! i)
+          (if (>= i (u8vector-length buf))
+            (set! done #t))
+          )))))
+    ;(debug-print-buffer (u8vector-copy buf 0 (+ i 1)))
+    chr))
 
-(define (make-msjis-putc port c932 crlf ces)
+(define (make-msjis-putc port conv crlf rdir hdl ces userwc)
   (lambda (chr)
-    (msjis-puts-sub (string chr) port c932 crlf ces)))
+    (msjis-puts-sub (string chr) port conv crlf rdir hdl ces userwc)))
 
-(define (make-msjis-puts port c932 crlf ces)
+(define (make-msjis-puts port conv crlf rdir hdl ces userwc)
   (lambda (str)
-    (msjis-puts-sub str port c932 crlf ces)))
+    (msjis-puts-sub str port conv crlf rdir hdl ces userwc)))
 
-(define (msjis-puts-sub str port c932 crlf ces)
-  (let1 buf 0
-    ;; 改行コードの変換(LF→CRLF)
-    (if crlf
-      (set! str (regexp-replace-all #/\n/ str "\r\n")))
-    ;; 文字コードの変換(内部コード→CP932)
-    (if c932
-      (set! buf (string->u8vector (ces-convert str (gauche-character-encoding) ces)))
-      (set! buf (string->u8vector str)))
-    ;(debug-print-buffer buf)
-    (write-block buf port)
-    (flush port)))
+(define (msjis-puts-sub str port conv crlf rdir hdl ces userwc)
+  (if (and (not rdir) userwc)
+    ;; リダイレクトなしでWin32APIのWriteConsole()使用のとき
+    (sys-write-console hdl str)
+    ;; その他のとき
+    (let1 buf 0
+      ;; 改行コードの変換(LF→CRLF)
+      (if crlf
+        (set! str (regexp-replace-all #/\n/ str "\r\n")))
+      ;; 文字コードの変換(内部コード→外部コード)
+      (if conv
+        (set! buf (string->u8vector (ces-convert str (gauche-character-encoding) ces)))
+        (set! buf (string->u8vector str)))
+      ;(debug-print-buffer buf)
+      ;; バイト列を出力
+      (write-block buf port)
+      (flush port))))
 
 
 
 ;; 標準入力の変換ポートの作成
-(define (make-msjis-stdin-port :optional (rmode 0) (ces 'CP932))
-  (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
-    (if c932
+(define (make-msjis-stdin-port :optional (rmode 0) (ces 'CP932) (userwc #f))
+  (check-ces ces (gauche-character-encoding) ces)
+  (receive (conv crlf rdir hdl) (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
+    (if conv
       (make <virtual-input-port>
-        :getc (make-msjis-getc (standard-input-port) ces))
+        :getc (make-msjis-getc (standard-input-port) rdir hdl ces userwc))
       #f)))
 
 ;; 標準出力の変換ポートの作成
-(define (make-msjis-stdout-port :optional (rmode 0) (ces 'CP932))
-  (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
-    (if (or c932 crlf)
+(define (make-msjis-stdout-port :optional (rmode 0) (ces 'CP932) (userwc #f))
+  (check-ces (gauche-character-encoding) ces ces)
+  (receive (conv crlf rdir hdl) (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
+    (if (or conv crlf)
       (make <virtual-output-port>
-        :putc (make-msjis-putc (standard-output-port) c932 crlf ces)
-        :puts (make-msjis-puts (standard-output-port) c932 crlf ces))
+        :putc (make-msjis-putc (standard-output-port) conv crlf rdir hdl ces userwc)
+        :puts (make-msjis-puts (standard-output-port) conv crlf rdir hdl ces userwc))
       #f)))
 
 ;; 標準エラー出力の変換ポートの作成
-(define (make-msjis-stderr-port :optional (rmode 0) (ces 'CP932))
-  (receive (c932 crlf) (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
-    (if (or c932 crlf)
+(define (make-msjis-stderr-port :optional (rmode 0) (ces 'CP932) (userwc #f))
+  (check-ces (gauche-character-encoding) ces ces)
+  (receive (conv crlf rdir hdl) (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
+    (if (or conv crlf)
       (make <virtual-output-port>
-        :putc (make-msjis-putc (standard-error-port) c932 crlf ces)
-        :puts (make-msjis-puts (standard-error-port) c932 crlf ces))
+        :putc (make-msjis-putc (standard-error-port) conv crlf rdir hdl ces userwc)
+        :puts (make-msjis-puts (standard-error-port) conv crlf rdir hdl ces userwc))
       #f)))
+
+;; 文字エンコーディングのチェック
+(define (check-ces ces1 ces2 err_ces)
+  (if (not (ces-conversion-supported? ces1 ces2))
+    (errorf "ces \"~s\" is not supported" err_ces)))
 
 ;; 変換用パラメータの取得
 (define (get-msjis-param rmode hdl)
-  (let ((c932 #f)
-        (crlf #f))
-    (cond ((redirected-handle? hdl)
-           (if (or (= rmode 2) (= rmode 3)) (set! c932 #t))
+  (let ((conv #f)
+        (crlf #f)
+        (rdir (redirected-handle? hdl)))
+    (cond (rdir
+           (if (or (= rmode 2) (= rmode 3)) (set! conv #t))
            (if (or (= rmode 1) (= rmode 3)) (set! crlf #t)))
           (else
-           (set! c932 #t)
+           (set! conv #t)
            (set! crlf #f)))
-    (values c932 crlf)))
+    (values conv crlf rdir hdl)))
 
 
 
 ;; 変換ポートの設定
-(define (msjis-mode :optional (rmode 0) (ces 'CP932))
-  (if-let1 port (make-msjis-stdin-port  rmode ces) (current-input-port  port))
-  (if-let1 port (make-msjis-stdout-port rmode ces) (current-output-port port))
-  (if-let1 port (make-msjis-stderr-port rmode ces) (current-error-port  port))
+(define (msjis-mode :optional (rmode 0) (ces 'CP932) (userwc #f))
+  (if-let1 port (make-msjis-stdin-port  rmode ces userwc) (current-input-port  port))
+  (if-let1 port (make-msjis-stdout-port rmode ces userwc) (current-output-port port))
+  (if-let1 port (make-msjis-stderr-port rmode ces userwc) (current-error-port  port))
   (undefined))
 

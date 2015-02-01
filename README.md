@@ -46,6 +46,24 @@
     (げた記号等に変換されます)  
     しかし SJISを指定した場合には、CP932特有の拡張文字等は認識されないので 注意が必要です。
 
+  - 第3引数はオプション引数で、リダイレクトなしのときに、  
+    Win32APIのReadConsole(),WriteConsole()を使用するかどうかを指定します。  
+    以下の値を指定可能です。省略時は#fを指定したことになります。
+    
+    ```
+    #t : ReadConsole(),WriteConsole()を使用する
+    #f : ReadConsole(),WriteConsole()を使用しない(デフォルト)
+    ```
+    WriteConsole()は、Gauche v0.9.4以降でないと正常に動作しません。  
+    また、ReadConsole()は、Windows XP では、しばしば文字化けすることがありました。  
+    (行頭の文字が「g」に化ける。環境依存かもしれない)  
+    この機能は、コマンドプロンプトで CP65001(UTF-8) を選択したときに、  
+    ReadConsole(),WriteConsole()を使用しないと、不具合が発生するために追加したものです。  
+    (Gaucheが終了したり、ゴミが付加されて表示される場合がある)  
+    しかし、コマンドプロンプトで CP65001(UTF-8) を選択しても、  
+    日本語フォントやMS-IMEは使えないので、通常はこの機能を使う必要はありません。  
+    (Lucida Consoleフォントを使用して、ギリシア文字等を表示する場合は必要になります)
+
 - 個別の変換ポートが必要な場合  
   個別の変換ポートが必要な場合は、以下を使用してください。
   ```
@@ -78,6 +96,10 @@
    http://social.msdn.microsoft.com/Forums/vstudio/en-US/716f2f70-9eed-4b96-9f43-f967605f307f/how-to-redirect-stdout-generated-using-writeconsole-in-kernel32dll?forum=netfxbcl  
    (Win32APIのReadConsole(),WriteConsole()は、リダイレクトありのときは使えない。  
    リダイレクトの有無はGetConsoleMode()が成功するかどうかで判定できる。)
+
+3. Incorrect Unicode output on Windows Console  
+   https://ghc.haskell.org/trac/ghc/ticket/4471  
+   (コマンドプロンプトで CP65001(UTF-8) を選択したときに不具合が発生する。)
 
 
 ## 環境等
@@ -117,6 +139,9 @@
 - 2014-11-22 v1.21 コメント修正のみ
 - 2014-11-26 v1.22 msjis-modeに第2引数(オプション引数)を追加
 - 2014-12-4  v1.23 インデント修正のみ
+- 2015-2-2   v1.24 マルチバイト文字の判定方法見直し  
+  ReadConsole(),WriteConsole()の使用引数追加  
+  文字エンコーディングのチェック処理追加
 
 
-(2014-12-4)
+(2015-2-2)
