@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2015-2-2 v1.24
+;; 2015-2-5 v1.25
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -62,12 +62,16 @@
         (done #f)
         (i    0)
         (buf  (make-u8vector 4 0)) ; MB_LEN_MAX
-        (buf2 (make-u8vector 2 0))
+        ;; ReadConsole() がバッファサイズより1バイト多く書き込む件に対応
+        ;(buf2 (make-u8vector 2 0))
+        (buf2 (make-u8vector 4 0))
         (ret  0))
     ;; 文字が完成するまで2バイトずつ読み込む
     (while (not done)
       (u8vector-fill! buf2 0)
-      (set! ret (sys-read-console hdl buf2))
+      ;; ReadConsole() がバッファサイズより1バイト多く書き込む件に対応
+      ;(set! ret (sys-read-console hdl buf2))
+      (set! ret (sys-read-console hdl (uvector-alias <u8vector> buf2 0 2)))
       (u8vector-copy! buf i buf2)
       (cond
        ;; ファイル終端(EOF)のとき

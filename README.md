@@ -45,24 +45,24 @@
     一方、変換する文字エンコーディングがSJISの場合には、Gaucheの内部で変換が行われます。  
     このときは、SJISに存在しない文字を変換しても、エラーにはなりません。  
     (げた記号等に変換されます)  
-    ただし SJISを指定すると、CP932に特有の拡張文字等は認識されないので注意してください。
+    ただし SJISを指定すると、CP932に特有の拡張文字等は認識されないため注意が必要です。
 
   - 第3引数の userwc はオプション引数で、リダイレクトなしの場合に、  
-    Win32API の ReadConsole(),WriteConsole() を使用するかどうかを指定します。  
+    Win32 API の ReadConsole(),WriteConsole() を使用するかどうかを指定します。  
     以下の値を指定可能です。省略時は #f を指定したことになります。
     
     ```
     #t : ReadConsole(),WriteConsole()を使用する
     #f : ReadConsole(),WriteConsole()を使用しない(デフォルト)
     ```
-    この機能は、コマンドプロンプトで CP65001(UTF-8) を選択した場合に発生する不具合を  
-    解消するためのものです。  
+    本機能は、コマンドプロンプトでコードページ CP65001(UTF-8) を選択した場合に発生する  
+    不具合を解消するために使用できます。  
     (CP65001(UTF-8) 選択時には、ReadConsole(),WriteConsole() を使用しないと、  
      ゴミが付加されて表示されたり、Gaucheが強制終了したりします)  
-    しかし、コマンドプロンプトで CP65001(UTF-8) を選択しても、  
-    日本語フォントやMS-IMEが使えないので、通常は本機能を使用する必要はありません。  
-    参考として、Lucida Console フォントを選択して、ギリシア文字を表示する場合の手順を  
-    以下に示しておきます。
+    使用例として、CP65001(UTF-8) を選択して Lucida Console フォントで ギリシア文字を  
+    表示する場合の手順を以下に示します。  
+    (※) 本機能は、Gauche v0.9.4 以降でないと正常に動作しません  
+    (※) CP65001(UTF-8) 選択時には、日本語フォントやMS-IMEは使用できません
     
     ```
     (a)コマンドプロンプトで chcp 65001 を実行
@@ -73,12 +73,9 @@
        (use msjis)
        (msjis-mode 0 'UTF-8 #t)
        (print #\u03B1#\u03B2#\u03B3#\u03BB)
-    (元に戻すには、(a)で chcp 932 を実行して (b)でラスタフォントを選択してください)
+
+    (※) 元に戻すには、(a)で chcp 932 を実行して (b)でラスタフォントを選択してください
     ```
-    注意事項として、ReadConsole() は、Windows XP では しばしば文字化けすることがありました。  
-    (行頭の文字が「g」に化ける。今回追試したら再現しないため、環境依存かもしれない)  
-    また、WriteConsole() は、Gauche v0.9.4以降でないと、ラッパーの sys-write-console が  
-    正常に動作しませんでした。(Gauche側の文字コード変換ミスのため)
 
 - 個別の変換ポートが必要な場合  
   個別の変換ポートが必要な場合には、以下を使用してください。
@@ -110,22 +107,33 @@
 
 2. How to redirect STDOUT generated using WriteConsole in kernel32.dll?  
    http://social.msdn.microsoft.com/Forums/vstudio/en-US/716f2f70-9eed-4b96-9f43-f967605f307f/how-to-redirect-stdout-generated-using-writeconsole-in-kernel32dll?forum=netfxbcl  
-   (Win32APIのReadConsole(),WriteConsole()は、リダイレクトありのときは使えない。  
-   リダイレクトの有無はGetConsoleMode()が成功するかどうかで判定できる。)
+   (Win32 API の ReadConsole(),WriteConsole() は、リダイレクトありのときは使えない。  
+   リダイレクトの有無は GetConsoleMode() が成功するかどうかで判定できる。)
 
 3. Incorrect Unicode output on Windows Console  
    https://ghc.haskell.org/trac/ghc/ticket/4471  
    (コマンドプロンプトで CP65001(UTF-8) を選択したときに不具合が発生する。)
 
+4. ReadConsole function (Community Additions : ReadConsole writes an extra byte)  
+   https://msdn.microsoft.com/en-us/library/windows/desktop/ms684958  
+   (ReadConsole() がバッファサイズより1バイト多く書き込む。)
+
+5. Windows XP で ReadConsole() を使用すると、しばしば文字化けが発生する。  
+   (行頭の文字が「g」に化ける。  
+    → 2015-2-2 追試したら再現しないため、修正されたか、もしくは、  
+    何か発生条件があるのかもしれない)
+
+6. Gauche v0.9.3.3 では、WriteConsole() のラッパーの sys-write-console が正常に動作しない。  
+   (Gauche側の文字コード変換ミスのため。Gauche v0.9.4 では修正ずみ。)
+
 
 ## 環境等
-- 以下の環境で動作を確認しました。
-  - OS
-    - Windows XP Home SP3
-    - Windows 8 (64bit)
-  - 言語
-    - Gauche v0.9.4
-    - Gauche v0.9.3.3
+- OS
+  - Windows XP Home SP3
+  - Windows 8 (64bit)
+- 言語
+  - Gauche v0.9.4
+  - Gauche v0.9.3.3
 
 ## 履歴
 - 2014-6-2   v1.00 (初版)
@@ -158,6 +166,7 @@
 - 2015-2-2   v1.24 マルチバイト文字の判定方法見直し  
   ReadConsole(),WriteConsole()の使用引数追加  
   文字エンコーディングのチェック処理追加
+- 2015-2-5   v1.25 ReadConsole() がバッファサイズより1バイト多く書き込む件に対応
 
 
-(2015-2-2)
+(2015-2-8)
