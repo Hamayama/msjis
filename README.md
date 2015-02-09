@@ -21,9 +21,9 @@
   以後、(print "あいうえお") 等で日本語を表示できます。
 
 - msjis-mode の引数  
-  msjis-mode には以下の引数を指定できます。  
+  msjis-mode にはオプションで以下の引数を指定できます。  
   `msjis-mode [rmode] [ces] [userwc]`
-  - 第1引数の rmode はオプション引数で、リダイレクト時の動作を指定します。  
+  - 第1引数の rmode には、リダイレクト時の動作を指定します。  
     以下の値を指定可能です。省略時は0を指定したことになります。
     
     ```
@@ -32,7 +32,7 @@
     2 : リダイレクト時には文字コード変換(CP932等の変換)あり
     3 : リダイレクト時には文字コード変換(CP932等の変換)と改行コード変換(LF→CRLF)あり
     ```
-  - 第2引数の ces はオプション引数で、変換する文字エンコーディングを指定します。  
+  - 第2引数の ces には、変換する文字エンコーディングを指定します。  
     以下の値を指定可能です。省略時は'CP932を指定したことになります。
     
     ```
@@ -45,9 +45,13 @@
     一方、変換する文字エンコーディングがSJISの場合には、Gaucheの内部で変換が行われます。  
     このときは、SJISに存在しない文字を変換しても、エラーにはなりません。  
     (げた記号等に変換されます)  
-    ただし SJISを指定すると、CP932に特有の拡張文字等は認識されないため注意が必要です。
+    ただし 文字エンコーディングのSJISとCP932では、使用可能な文字が一部異なるため、  
+    変換結果が変わる場合があります。  
+    (SJISの方が JIS X 0213 をカバーしており範囲が広いもよう。  
+     しかし、CP932のみで使用可能な文字も一部存在する。  
+     (例えば シフトJISコード 0x8794 の数学記号のシグマ等))
 
-  - 第3引数の userwc はオプション引数で、リダイレクトなしの場合に、  
+  - 第3引数の userwc には、リダイレクトなしの場合に、  
     Win32 API の ReadConsole(),WriteConsole() を使用するかどうかを指定します。  
     以下の値を指定可能です。省略時は #f を指定したことになります。
     
@@ -65,14 +69,15 @@
     (※) CP65001(UTF-8) 選択時には、日本語フォントやMS-IMEは使用できません
     
     ```
-    (a)コマンドプロンプトで chcp 65001 を実行
-    (b)コマンドプロンプトの画面左上のアイコンをクリックしてプロパティを開き、
-       フォントタブで、フォントの Lucida Console を選択
-    (c)コマンドプロンプトで以下を実行
-       gosh
-       (use msjis)
-       (msjis-mode 0 'UTF-8 #t)
-       (print #\u03B1#\u03B2#\u03B3#\u03BB)
+    ＜手順＞
+      (a)コマンドプロンプトで chcp 65001 を実行
+      (b)コマンドプロンプトの画面左上のアイコンをクリックしてプロパティを開き、
+         フォントタブで、フォントの Lucida Console を選択
+      (c)コマンドプロンプトで以下を実行
+           gosh
+           (use msjis)
+           (msjis-mode 0 'UTF-8 #t)
+           (print #\u03B1#\u03B2#\u03B3#\u03BB)
 
     (※) 元に戻すには、(a)で chcp 932 を実行して (b)でラスタフォントを選択してください
     ```
@@ -96,27 +101,27 @@
 
 3. CP932に存在しない文字を変換するとエラーになります(iconvの仕様による)。  
    (例えば (print #\x100) 等)  
-   エラーを発生させたくない場合は、msjis-modeの第2引数に'SJISを指定してください。  
+   エラーを発生させたくない場合には、msjis-modeの第2引数に'SJISを指定してください。  
    (上記「使い方」を参照ください)  
 
 
 ## 参考情報
 1. コマンドプロンプトで Gauche プログラミング - 主題のない日記  
    http://saito.hatenablog.jp/entry/2014/04/14/104006  
-   (ここのコードを元に改造、デバッグしました。)
+   (ここのコードを元に改造、デバッグしました)
 
 2. How to redirect STDOUT generated using WriteConsole in kernel32.dll?  
    http://social.msdn.microsoft.com/Forums/vstudio/en-US/716f2f70-9eed-4b96-9f43-f967605f307f/how-to-redirect-stdout-generated-using-writeconsole-in-kernel32dll?forum=netfxbcl  
    (Win32 API の ReadConsole(),WriteConsole() は、リダイレクトありのときは使えない。  
-   リダイレクトの有無は GetConsoleMode() が成功するかどうかで判定できる。)
+   リダイレクトの有無は GetConsoleMode() が成功するかどうかで判定できる)
 
 3. Incorrect Unicode output on Windows Console  
    https://ghc.haskell.org/trac/ghc/ticket/4471  
-   (コマンドプロンプトで CP65001(UTF-8) を選択したときに不具合が発生する。)
+   (コマンドプロンプトで CP65001(UTF-8) を選択したときに不具合が発生する)
 
 4. ReadConsole function (Community Additions : ReadConsole writes an extra byte)  
    https://msdn.microsoft.com/en-us/library/windows/desktop/ms684958  
-   (ReadConsole() がバッファサイズより1バイト多く書き込む。)
+   (ReadConsole() がバッファサイズより1バイト多く書き込む)
 
 5. Windows XP で ReadConsole() を使用すると、しばしば文字化けが発生する。  
    (行頭の文字が「g」に化ける。  
@@ -124,7 +129,7 @@
     何か発生条件があるのかもしれない)
 
 6. Gauche v0.9.3.3 では、WriteConsole() のラッパーの sys-write-console が正常に動作しない。  
-   (Gauche側の文字コード変換ミスのため。Gauche v0.9.4 では修正ずみ。)
+   (Gauche側の文字コード変換ミスのため。Gauche v0.9.4 では修正ずみ)
 
 
 ## 環境等
@@ -169,4 +174,4 @@
 - 2015-2-5   v1.25 ReadConsole() がバッファサイズより1バイト多く書き込む件に対応
 
 
-(2015-2-8)
+(2015-2-11)
