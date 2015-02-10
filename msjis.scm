@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2015-2-11 v1.26
+;; 2015-2-11 v1.27
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -83,7 +83,7 @@
        ;; ファイル終端(EOF)以外のとき
        (else
         ;; 文字コードの変換(外部コード→内部コード)
-        (set! str (ces-convert (u8vector->string (u8vector-copy buf 0 (+ i 2))) 'UTF-16LE))
+        (set! str (ces-convert (u8vector->string buf 0 (+ i 2)) 'UTF-16LE))
         (cond
          ;; 文字が完成したとき
          ((> (string-length str) 0)
@@ -118,7 +118,7 @@
        ;; ファイル終端(EOF)以外のとき
        (else
         ;; 文字コードの変換(外部コード→内部コード)
-        (set! str (ces-convert (u8vector->string (u8vector-copy buf 0 (+ i 1))) ces))
+        (set! str (ces-convert (u8vector->string buf 0 (+ i 1)) ces))
         (cond
          ;; 文字が完成したとき
          ((> (string-length str) 0)
