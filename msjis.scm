@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2015-2-11 v1.28
+;; 2015-2-11 v1.29
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -51,75 +51,43 @@
 (define (make-msjis-getc port rdir hdl ces userwc)
   (if (and (not rdir) userwc)
     ;; リダイレクトなしでWin32APIのReadConsole()使用のとき
-    (lambda () (msjis-getc-sub1 hdl))
+    (lambda () (msjis-getc-sub port hdl 'UTF-16LE 4 2 2 #t zero?))
     ;; その他のとき
-    (lambda () (msjis-getc-sub2 port ces))))
+    (lambda () (msjis-getc-sub port hdl ces 6 0 1 #f eof-object?))))
 
-(define (msjis-getc-sub1 hdl)
-  (let ((str  "")
-        (buf  (make-u8vector 4 0)) ; MB_LEN_MAX
-        (buf2 (make-u8vector 4 0)) ; ReadConsole()がバッファサイズより1バイト多く書き込む件に対応
-        (ret  0))
+(define (msjis-getc-sub port hdl ces maxbytes extrabytes readbytes userwc eofcheckfunc)
+  (let ((str "")
+        ;; ReadConsole()がバッファサイズより1バイト多く書き込む件に対応
+        (buf (make-u8vector (+ maxbytes extrabytes) 0))
+        (ret 0))
     ;; 文字が完成するまで2バイトずつ読み込む
     (let loop ((i 0))
-      (u8vector-fill! buf2 0)
-      (set! ret (sys-read-console hdl (uvector-alias <u8vector> buf2 0 2)))
-      (u8vector-copy! buf i buf2 0 2)
+      (if userwc
+        (set! ret (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
+        (set! ret (read-block! buf port i (+ i readbytes))))
       (cond
        ;; ファイル終端(EOF)のとき
-       ((= ret 0)
+       ((eofcheckfunc ret)
         ;(debug-print-str "[EOF]")
-        ;(debug-print-buffer (u8vector-copy buf 0 (+ i 2)))
+        ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
         (eof-object))
        ;; ファイル終端(EOF)以外のとき
        (else
         ;; 文字コードの変換(外部コード→内部コード)
-        (set! str (ces-convert (u8vector->string buf 0 (+ i 2)) 'UTF-16LE))
+        (set! str (ces-convert (u8vector->string buf 0 (+ i readbytes)) ces))
         (cond
          ;; 文字が完成したとき
          ((> (string-length str) 0)
           ;(debug-print-char-code (string-ref str 0))
-          ;(debug-print-buffer (u8vector-copy buf 0 (+ i 2)))
+          ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
           (string-ref str 0))
          ;; 文字が未完成のとき
          (else
           (cond
-           ((< (+ i 2) (u8vector-length buf))
-            (loop (+ i 2)))
+           ((< (+ i readbytes) maxbytes)
+            (loop (+ i readbytes)))
            (else
-            ;(debug-print-buffer (u8vector-copy buf 0 (+ i 2)))
-            #\null)))))))))
-
-(define (msjis-getc-sub2 port ces)
-  (let ((str  "")
-        (buf  (make-u8vector 6 0)) ; MB_LEN_MAX
-        (ret  0))
-    ;; 文字が完成するまで1バイトずつ読み込む
-    (let loop ((i 0))
-      (set! ret (read-block! buf port i (+ i 1)))
-      (cond
-       ;; ファイル終端(EOF)のとき
-       ((eof-object? ret)
-        ;(debug-print-str "[EOF]")
-        ;(debug-print-buffer (u8vector-copy buf 0 (+ i 1)))
-        (eof-object))
-       ;; ファイル終端(EOF)以外のとき
-       (else
-        ;; 文字コードの変換(外部コード→内部コード)
-        (set! str (ces-convert (u8vector->string buf 0 (+ i 1)) ces))
-        (cond
-         ;; 文字が完成したとき
-         ((> (string-length str) 0)
-          ;(debug-print-char-code (string-ref str 0))
-          ;(debug-print-buffer (u8vector-copy buf 0 (+ i 1)))
-          (string-ref str 0))
-         ;; 文字が未完成のとき
-         (else
-          (cond
-           ((< (+ i 1) (u8vector-length buf))
-            (loop (+ i 1)))
-           (else
-            ;(debug-print-buffer (u8vector-copy buf 0 (+ i 1)))
+            ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
             #\null)))))))))
 
 (define (make-msjis-putc port conv crlf rdir hdl ces userwc)
