@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2015-2-11 v1.32
+;; 2015-2-11 v1.33
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -58,11 +58,12 @@
 (define (msjis-getc-sub port hdl ces userwc eofcheckfunc maxbytes extrabytes readbytes)
   (let ((chr #\null)
         (str "")
+        (i   0)
         ;; ReadConsole()がバッファサイズより1バイト多く書き込む件に対応
         (buf (make-u8vector (+ maxbytes extrabytes) 0))
         (ret 0))
     ;; 文字が完成するまで指定バイトずつ読み込む
-    (let loop ((i 0))
+    (let loop ()
       (if userwc
         (set! ret (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
         (set! ret (read-block! buf port i (+ i readbytes))))
@@ -82,8 +83,9 @@
           (set! chr (string-ref str 0)))
          ;; 文字が未完成のとき
          (else
-          (if (< (+ i readbytes) maxbytes)
-            (loop (+ i readbytes)))
+          (when (< (+ i readbytes) maxbytes)
+            (set! i (+ i readbytes))
+            (loop))
           ;; ここに何か書くと末尾再帰でなくなるので注意
           )))))
     ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
