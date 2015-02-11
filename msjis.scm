@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2015-2-11 v1.30
+;; 2015-2-11 v1.31
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -51,11 +51,11 @@
 (define (make-msjis-getc port rdir hdl ces userwc)
   (if (and (not rdir) userwc)
     ;; リダイレクトなしでWin32APIのReadConsole()使用のとき
-    (lambda () (msjis-getc-sub port hdl 'UTF-16LE 4 2 2 #t zero?))
+    (lambda () (msjis-getc-sub port hdl 'UTF-16LE #t zero? 4 2 2))
     ;; その他のとき
-    (lambda () (msjis-getc-sub port hdl ces 6 0 1 #f eof-object?))))
+    (lambda () (msjis-getc-sub port hdl ces #f eof-object? 6 0 1))))
 
-(define (msjis-getc-sub port hdl ces maxbytes extrabytes readbytes userwc eofcheckfunc)
+(define (msjis-getc-sub port hdl ces userwc eofcheckfunc maxbytes extrabytes readbytes)
   (let ((str "")
         ;; ReadConsole()がバッファサイズより1バイト多く書き込む件に対応
         (buf (make-u8vector (+ maxbytes extrabytes) 0))
@@ -156,15 +156,9 @@
 
 ;; 変換用パラメータの取得
 (define (get-msjis-param rmode hdl)
-  (let ((conv #f)
-        (crlf #f)
-        (rdir (redirected-handle? hdl)))
-    (cond (rdir
-           (if (or (= rmode 2) (= rmode 3)) (set! conv #t))
-           (if (or (= rmode 1) (= rmode 3)) (set! crlf #t)))
-          (else
-           (set! conv #t)
-           (set! crlf #f)))
+  (let* ((rdir (redirected-handle? hdl))
+         (conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
+         (crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f)))
     (values conv crlf rdir hdl)))
 
 
