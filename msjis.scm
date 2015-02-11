@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2015-2-11 v1.31
+;; 2015-2-11 v1.32
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -56,7 +56,8 @@
     (lambda () (msjis-getc-sub port hdl ces #f eof-object? 6 0 1))))
 
 (define (msjis-getc-sub port hdl ces userwc eofcheckfunc maxbytes extrabytes readbytes)
-  (let ((str "")
+  (let ((chr #\null)
+        (str "")
         ;; ReadConsole()がバッファサイズより1バイト多く書き込む件に対応
         (buf (make-u8vector (+ maxbytes extrabytes) 0))
         (ret 0))
@@ -69,8 +70,7 @@
        ;; ファイル終端(EOF)のとき
        ((eofcheckfunc ret)
         ;(debug-print-str "[EOF]")
-        ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
-        (eof-object))
+        (set! chr (eof-object)))
        ;; ファイル終端(EOF)以外のとき
        (else
         ;; 文字コードの変換(外部コード→内部コード)
@@ -79,16 +79,15 @@
          ;; 文字が完成したとき
          ((> (string-length str) 0)
           ;(debug-print-char-code (string-ref str 0))
-          ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
-          (string-ref str 0))
+          (set! chr (string-ref str 0)))
          ;; 文字が未完成のとき
          (else
-          (cond
-           ((< (+ i readbytes) maxbytes)
+          (if (< (+ i readbytes) maxbytes)
             (loop (+ i readbytes)))
-           (else
-            ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
-            #\null)))))))))
+          ;; ここに何か書くと末尾再帰でなくなるので注意
+          )))))
+    ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
+    chr))
 
 (define (make-msjis-putc port conv crlf rdir hdl ces userwc)
   (if (and (not rdir) userwc)
