@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2015-2-21 v1.34
+;; 2015-2-23 v1.35
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -15,7 +15,7 @@
   (use gauche.vport)
   (use gauche.uvector)
   (use os.windows)
-  (export 
+  (export
     msjis-mode
     make-msjis-stdin-port
     make-msjis-stdout-port
@@ -47,87 +47,92 @@
 
 
 
-;; 1文字入出力の変換処理
+;; 1文字入力の変換処理
 (define (make-msjis-getc port rdir hdl ces c65001)
   (if (and (not rdir) c65001)
     ;; リダイレクトなしでCP65001対応のとき
-    (lambda () (msjis-getc-sub port hdl 'UTF-16LE #t zero? 4 2 2))
+    (make-msjis-getc-sub port hdl 'UTF-16LE #t zero? 4 2 2)
     ;; その他のとき
-    (lambda () (msjis-getc-sub port hdl ces #f eof-object? 6 0 1))))
+    (make-msjis-getc-sub port hdl ces #f eof-object? 6 0 1)))
 
-(define (msjis-getc-sub port hdl ces c65001 eofcheckfunc maxbytes extrabytes readbytes)
-  (let ((chr #\null)
-        (str "")
-        (i   0)
-        ;; ReadConsole()がバッファサイズより1バイト多く書き込む件に対応
-        (buf (make-u8vector (+ maxbytes extrabytes) 0))
-        (ret 0))
-    ;; 文字が完成するまで指定バイトずつ読み込む
-    (let loop ()
-      (if c65001
-        (set! ret (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
-        (set! ret (read-block! buf port i (+ i readbytes))))
-      (cond
-       ;; ファイル終端(EOF)のとき
-       ((eofcheckfunc ret)
-        ;(debug-print-str "[EOF]")
-        (set! chr (eof-object)))
-       ;; ファイル終端(EOF)以外のとき
-       (else
-        ;; 文字コードの変換(外部コード→内部コード)
-        (set! str (ces-convert (u8vector->string buf 0 (+ i readbytes)) ces))
+(define (make-msjis-getc-sub port hdl ces c65001 eofcheckfunc maxbytes extrabytes readbytes)
+  ;; 手続きを作って返す
+  (lambda ()
+    (let ((chr #\null)
+          (str "")
+          (i   0)
+          ;; ReadConsole()がバッファサイズより1バイト多く書き込む件に対応
+          (buf (make-u8vector (+ maxbytes extrabytes) 0))
+          (ret 0))
+      ;; 文字が完成するまで指定バイトずつ読み込む
+      (let loop ()
+        (if c65001
+          (set! ret (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
+          (set! ret (read-block! buf port i (+ i readbytes))))
         (cond
-         ;; 文字が完成したとき
-         ((> (string-length str) 0)
-          ;(debug-print-char-code (string-ref str 0))
-          (set! chr (string-ref str 0)))
-         ;; 文字が未完成のとき
+         ;; ファイル終端(EOF)のとき
+         ((eofcheckfunc ret)
+          ;(debug-print-str "[EOF]")
+          (set! chr (eof-object)))
+         ;; ファイル終端(EOF)以外のとき
          (else
-          (when (< (+ i readbytes) maxbytes)
-            (set! i (+ i readbytes))
-            (loop))
-          ;; ここに何か書くと末尾再帰でなくなるので注意
-          )))))
-    ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
-    chr))
+          ;; 文字コードの変換(外部コード→内部コード)
+          (set! str (ces-convert (u8vector->string buf 0 (+ i readbytes)) ces))
+          (cond
+           ;; 文字が完成したとき
+           ((> (string-length str) 0)
+            ;(debug-print-char-code (string-ref str 0))
+            (set! chr (string-ref str 0)))
+           ;; 文字が未完成のとき
+           (else
+            (when (< (+ i readbytes) maxbytes)
+              (set! i (+ i readbytes))
+              (loop))
+            ;; ここに何か書くと末尾再帰でなくなるので注意
+            )))))
+      ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
+      chr)))
 
+;; 1文字出力の変換処理
 (define (make-msjis-putc port conv crlf rdir hdl ces c65001)
   (if (and (not rdir) c65001)
     ;; リダイレクトなしでCP65001対応のとき
-    (lambda (chr) (msjis-puts-sub1 (string chr) hdl 4096))
+    (lambda (chr) ((make-msjis-puts-sub1 hdl 4096) (string chr)))
     ;; その他のとき
-    (lambda (chr) (msjis-puts-sub2 (string chr) port conv crlf ces))))
+    (lambda (chr) ((make-msjis-puts-sub2 port conv crlf ces) (string chr)))))
 
+;; 文字列出力の変換処理
 (define (make-msjis-puts port conv crlf rdir hdl ces c65001)
   (if (and (not rdir) c65001)
     ;; リダイレクトなしでCP65001対応のとき
-    (lambda (str) (msjis-puts-sub1 str hdl 4096))
+    (make-msjis-puts-sub1 hdl 4096)
     ;; その他のとき
-    (lambda (str) (msjis-puts-sub2 str port conv crlf ces))))
+    (make-msjis-puts-sub2 port conv crlf ces)))
 
-(define (msjis-puts-sub1 str hdl maxchars)
-  ;; 指定文字数ずつ書き出す
-  (let loop ((i 0))
-    (cond
-     ((<= (string-length str) (+ i maxchars))
-      (sys-write-console hdl (string-copy str i)))
-     (else
-      (sys-write-console hdl (string-copy str i (+ i maxchars)))
-      (loop (+ i maxchars))))))
+(define (make-msjis-puts-sub1 hdl maxchars)
+  ;; 手続きを作って返す
+  (lambda (str)
+    ;; 指定文字数ずつ書き出す
+    (let loop ((i 0))
+      (cond
+       ((<= (string-length str) (+ i maxchars))
+        (sys-write-console hdl (string-copy str i)))
+       (else
+        (sys-write-console hdl (string-copy str i (+ i maxchars)))
+        (loop (+ i maxchars)))))))
 
-(define (msjis-puts-sub2 str port conv crlf ces)
-  (let1 buf 0
+(define (make-msjis-puts-sub2 port conv crlf ces)
+  ;; 手続きを作って返す
+  (lambda (str)
     ;; 改行コードの変換(LF→CRLF)
-    (if crlf
-      (set! str (regexp-replace-all #/\n/ str "\r\n")))
     ;; 文字コードの変換(内部コード→外部コード)
-    (if conv
-      (set! buf (string->u8vector (ces-convert str (gauche-character-encoding) ces)))
-      (set! buf (string->u8vector str)))
-    ;(debug-print-buffer buf)
-    ;; バイト列を書き出す
-    (write-block buf port)
-    (flush port)))
+    (let* ((str2 (if crlf (regexp-replace-all #/\n/ str "\r\n") str))
+           (str3 (if conv (ces-convert str2 (gauche-character-encoding) ces) str2))
+           (buf  (string->u8vector str3)))
+      ;(debug-print-buffer buf)
+      ;; バイト列を書き出す
+      (write-block buf port)
+      (flush port))))
 
 
 
