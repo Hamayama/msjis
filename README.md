@@ -72,10 +72,10 @@
 
 2. 1文字ずつ変換するため、その分の時間がかかります。
 
-3. msjis-mode の第2引数に 'CP932 を指定した場合には、iconvという外部ライブラリで  
+3. msjis-mode の第2引数に 'CP932 を指定した場合には、iconv という外部ライブラリで  
    変換が行われます。このときは、変換できない文字があると、エラーが発生します。  
    (iconvの仕様による)  
-   一方、msjis-mode の第2引数に 'SJIS を指定した場合には、Gaucheの内部で  
+   一方、msjis-mode の第2引数に 'SJIS を指定した場合には、Gauche の内部で  
    変換が行われます。このときは、変換できない文字があっても、エラーにはなりません。  
    (げた記号等に変換されます)
 
@@ -93,11 +93,17 @@
      (print #\u0100#\u0101)
      (print #\u03B1#\u03B2#\u03B3#\u03BB)
    ```
-   ただし このとき、サロゲートペアの文字 (#\u2000B 等) については、うまく表示する  
-   ことができません。これについては 制限事項になります。  
-   (Gauche の開発最新版では、サロゲートペアの文字も表示可能です)  
+   サロゲートペアの文字 (#\u2000B 等) については、うまく表示することができません。  
+   これについては、制限事項になります。  
+   (Gauche の開発最新版では、サロゲートペアの文字も表示可能になりました)  
    (ConEmu で、日本語のフォントが重なって表示される場合には、Settings メニューの  
-    Main console font で Monospace のチェックを外してください)
+    Main console font で Monospace の設定を確認してみてください。  
+    Monospace のチェックを外すと、フォントの重なりについては解消されます。  
+    ただしこのとき、コードページ CP65001(UTF-8) では、全角文字を含んだ行の表示が  
+    画面内に入りきらないケースが発生します。  
+    一方、Monospace にチェックを入れた状態で Cell 幅を設定すると、行の折り返しに  
+    ついては正常になります。ただし、この場合は、全角文字も半角文字も同じ幅で表示  
+    されます)
 
 
 ## 参考情報
@@ -108,11 +114,14 @@
 2. How to redirect STDOUT generated using WriteConsole in kernel32.dll?  
    http://social.msdn.microsoft.com/Forums/vstudio/en-US/716f2f70-9eed-4b96-9f43-f967605f307f/how-to-redirect-stdout-generated-using-writeconsole-in-kernel32dll?forum=netfxbcl  
    (Win32 API の ReadConsole(),WriteConsole() は、リダイレクトありのときは使えない。  
-   リダイレクトの有無は GetConsoleMode() が成功するかどうかで判定できる)
+    リダイレクトの有無は GetConsoleMode() が成功するかどうかで判定できる)
 
 3. Incorrect Unicode output on Windows Console  
    https://ghc.haskell.org/trac/ghc/ticket/4471  
-   (コマンドプロンプトで CP65001(UTF-8) を選択したときに不具合が発生する)
+   (コマンドプロンプトで CP65001(UTF-8) を選択したときに不具合が発生する。  
+    具体的には、WriteFile() の結果がフォントによって、文字数を返したり バイト数を  
+    返したりする。対策としては、WriteFile() の替わりに WriteConsole() を使うことが  
+    挙げられる)
 
 4. ReadConsole function (Community Additions : ReadConsole writes an extra byte)  
    https://msdn.microsoft.com/en-us/library/windows/desktop/ms684958  
@@ -181,4 +190,4 @@
 - 2015-2-23  v1.35 1文字入出力の処理見直し
 
 
-(2015-5-18)
+(2015-10-17)
