@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2015-2-23 v1.35
+;; 2016-2-23 v1.36
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -48,14 +48,14 @@
 
 
 ;; 1文字入力の変換処理
-(define (make-msjis-getc port rdir hdl ces c65001)
-  (if (and (not rdir) c65001)
-    ;; リダイレクトなしでCP65001対応のとき
+(define (make-msjis-getc port hdl ces use-api)
+  (if use-api
+    ;; Windows API 使用のとき
     (make-msjis-getc-sub port hdl 'UTF-16LE #t zero? 4 2 2)
     ;; その他のとき
     (make-msjis-getc-sub port hdl ces #f eof-object? 6 0 1)))
 
-(define (make-msjis-getc-sub port hdl ces c65001 eofcheckfunc maxbytes extrabytes readbytes)
+(define (make-msjis-getc-sub port hdl ces use-api eofcheckfunc maxbytes extrabytes readbytes)
   ;; 手続きを作って返す
   (lambda ()
     (let ((chr #\null)
@@ -66,7 +66,7 @@
           (ret 0))
       ;; 文字が完成するまで指定バイトずつ読み込む
       (let loop ()
-        (if c65001
+        (if use-api
           (set! ret (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
           (set! ret (read-block! buf port i (+ i readbytes))))
         (cond
@@ -94,17 +94,17 @@
       chr)))
 
 ;; 1文字出力の変換処理
-(define (make-msjis-putc port conv crlf rdir hdl ces c65001)
-  (if (and (not rdir) c65001)
-    ;; リダイレクトなしでCP65001対応のとき
+(define (make-msjis-putc port conv crlf hdl ces use-api)
+  (if use-api
+    ;; Windows API 使用のとき
     (lambda (chr) ((make-msjis-puts-sub1 hdl 4096) (string chr)))
     ;; その他のとき
     (lambda (chr) ((make-msjis-puts-sub2 port conv crlf ces) (string chr)))))
 
 ;; 文字列出力の変換処理
-(define (make-msjis-puts port conv crlf rdir hdl ces c65001)
-  (if (and (not rdir) c65001)
-    ;; リダイレクトなしでCP65001対応のとき
+(define (make-msjis-puts port conv crlf hdl ces use-api)
+  (if use-api
+    ;; Windows API 使用のとき
     (make-msjis-puts-sub1 hdl 4096)
     ;; その他のとき
     (make-msjis-puts-sub2 port conv crlf ces)))
@@ -137,32 +137,35 @@
 
 
 ;; 標準入力の変換ポートの作成
-(define (make-msjis-stdin-port :optional (rmode 0) (ces 'CP932) (c65001 #f))
+(define (make-msjis-stdin-port :optional (rmode 0) (ces 'CP932) (use-api #f))
   (check-ces ces (gauche-character-encoding) ces)
-  (receive (conv crlf rdir hdl) (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE))
+  (receive (conv crlf hdl use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE) use-api)
     (if conv
       (make <virtual-input-port>
-        :getc (make-msjis-getc (standard-input-port) rdir hdl ces c65001))
+        :getc (make-msjis-getc (standard-input-port) hdl ces use-api))
       #f)))
 
 ;; 標準出力の変換ポートの作成
-(define (make-msjis-stdout-port :optional (rmode 0) (ces 'CP932) (c65001 #f))
+(define (make-msjis-stdout-port :optional (rmode 0) (ces 'CP932) (use-api #f))
   (check-ces (gauche-character-encoding) ces ces)
-  (receive (conv crlf rdir hdl) (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE))
+  (receive (conv crlf hdl use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE) use-api)
     (if (or conv crlf)
       (make <virtual-output-port>
-        :putc (make-msjis-putc (standard-output-port) conv crlf rdir hdl ces c65001)
-        :puts (make-msjis-puts (standard-output-port) conv crlf rdir hdl ces c65001))
+        :putc (make-msjis-putc (standard-output-port) conv crlf hdl ces use-api)
+        :puts (make-msjis-puts (standard-output-port) conv crlf hdl ces use-api))
       #f)))
 
 ;; 標準エラー出力の変換ポートの作成
-(define (make-msjis-stderr-port :optional (rmode 0) (ces 'CP932) (c65001 #f))
+(define (make-msjis-stderr-port :optional (rmode 0) (ces 'CP932) (use-api #f))
   (check-ces (gauche-character-encoding) ces ces)
-  (receive (conv crlf rdir hdl) (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE))
+  (receive (conv crlf hdl use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE) use-api)
     (if (or conv crlf)
       (make <virtual-output-port>
-        :putc (make-msjis-putc (standard-error-port) conv crlf rdir hdl ces c65001)
-        :puts (make-msjis-puts (standard-error-port) conv crlf rdir hdl ces c65001))
+        :putc (make-msjis-putc (standard-error-port) conv crlf hdl ces use-api)
+        :puts (make-msjis-puts (standard-error-port) conv crlf hdl ces use-api))
       #f)))
 
 ;; 文字エンコーディングのチェック
@@ -171,18 +174,22 @@
     (errorf "ces \"~s\" is not supported" err_ces)))
 
 ;; 変換用パラメータの取得
-(define (get-msjis-param rmode hdl)
-  (let* ((rdir (redirected-handle? hdl))
-         (conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
-         (crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f)))
-    (values conv crlf rdir hdl)))
+(define (get-msjis-param rmode hdl use-api)
+  (let* ((rdir     (redirected-handle? hdl))
+         (conv     (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
+         (crlf     (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
+         (use-api2 (if rdir #f use-api)))
+    (cond-expand
+     (gauche.ces.utf8)
+     (else (set! use-api2 #f)))
+    (values conv crlf hdl use-api2)))
 
 
 
 ;; 変換ポートの設定
-(define (msjis-mode :optional (rmode 0) (ces 'CP932) (c65001 #f))
-  (if-let1 port (make-msjis-stdin-port  rmode ces c65001) (current-input-port  port))
-  (if-let1 port (make-msjis-stdout-port rmode ces c65001) (current-output-port port))
-  (if-let1 port (make-msjis-stderr-port rmode ces c65001) (current-error-port  port))
+(define (msjis-mode :optional (rmode 0) (ces 'CP932) (use-api #f))
+  (if-let1 port (make-msjis-stdin-port  rmode ces use-api) (current-input-port  port))
+  (if-let1 port (make-msjis-stdout-port rmode ces use-api) (current-output-port port))
+  (if-let1 port (make-msjis-stderr-port rmode ces use-api) (current-error-port  port))
   (undefined))
 
