@@ -138,13 +138,13 @@
 4. ReadConsole function (Community Additions : ReadConsole writes an extra byte)  
    https://msdn.microsoft.com/en-us/library/windows/desktop/ms684958  
    (ReadConsole() がバッファサイズより1バイト多く書き込む)  
-   (現在リンク切れです)
+   (現在コメント欄が非表示になっているようです)
 
 5. Windows XP で ReadConsole() を使用すると、文字化けが発生することがある。  
-   (行頭の文字が「g」に化ける。  
+   (行頭の文字が「g」に化ける)  
     → 2015-2-2 追試したら再現しないため、修正されたか、もしくは、何か発生条件が  
-    あるのかもしれない  
-    → 2015-2-15 再現した。昨年より頻度は減ったような気がする)
+    あるのかもしれない。  
+    → 2015-2-15 再現した。昨年より頻度は減ったような気がする。
 
 6. Gauche v0.9.3.3 では、ReadConsole(),WriteConsole() のラッパーの  
    sys-read-console,sys-write-console が正常に動作しない。  
@@ -205,4 +205,4 @@
 - 2016-2-23  v1.36 msjis-modeの第3引数の名称変更と処理見直し等
 
 
-(2016-2-23)
+(2016-2-24)
