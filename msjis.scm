@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-2-23 v1.36
+;; 2016-3-9 v1.37
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -137,20 +137,18 @@
 
 
 ;; 標準入力の変換ポートの作成
-(define (make-msjis-stdin-port :optional (rmode 0) (ces 'CP932) (use-api #f))
-  (check-ces ces (gauche-character-encoding) ces)
-  (receive (conv crlf hdl use-api)
-      (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE) use-api)
+(define (make-msjis-stdin-port :optional (rmode 0) (ces '#f) (use-api #f))
+  (receive (conv crlf hdl ces use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE) ces use-api #t)
     (if conv
       (make <virtual-input-port>
         :getc (make-msjis-getc (standard-input-port) hdl ces use-api))
       #f)))
 
 ;; 標準出力の変換ポートの作成
-(define (make-msjis-stdout-port :optional (rmode 0) (ces 'CP932) (use-api #f))
-  (check-ces (gauche-character-encoding) ces ces)
-  (receive (conv crlf hdl use-api)
-      (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE) use-api)
+(define (make-msjis-stdout-port :optional (rmode 0) (ces '#f) (use-api #f))
+  (receive (conv crlf hdl ces use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE) ces use-api #f)
     (if (or conv crlf)
       (make <virtual-output-port>
         :putc (make-msjis-putc (standard-output-port) conv crlf hdl ces use-api)
@@ -158,36 +156,51 @@
       #f)))
 
 ;; 標準エラー出力の変換ポートの作成
-(define (make-msjis-stderr-port :optional (rmode 0) (ces 'CP932) (use-api #f))
-  (check-ces (gauche-character-encoding) ces ces)
-  (receive (conv crlf hdl use-api)
-      (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE) use-api)
+(define (make-msjis-stderr-port :optional (rmode 0) (ces '#f) (use-api #f))
+  (receive (conv crlf hdl ces use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE) ces use-api #f)
     (if (or conv crlf)
       (make <virtual-output-port>
         :putc (make-msjis-putc (standard-error-port) conv crlf hdl ces use-api)
         :puts (make-msjis-puts (standard-error-port) conv crlf hdl ces use-api))
       #f)))
 
+;; 変換用パラメータの取得
+(define (get-msjis-param rmode hdl ces use-api stdin-flag)
+  (let ((rdir        (redirected-handle? hdl))
+        (conv        #f)
+        (crlf        #f)
+        (ces-new     ces)
+        (use-api-new use-api))
+    ;; 文字エンコーディングが未指定のときは、コードページを取得して自動設定する
+    (if (not ces)
+      (let1 cp (if stdin-flag (sys-get-console-cp) (sys-get-console-output-cp))
+        (case cp
+          ((65001) (set! ces-new 'UTF-8)
+                   (set! use-api-new #t))
+          (else    (set! ces-new (string->symbol (format "CP~d" cp)))))))
+    ;; 文字エンコーディングのチェック
+    (if stdin-flag
+      (check-ces ces-new (gauche-character-encoding) ces-new)
+      (check-ces (gauche-character-encoding) ces-new ces-new))
+    ;; 変換用パラメータの取得
+    (set! conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
+    (set! crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
+    (set! use-api-new (if rdir #f use-api-new))
+    (cond-expand
+     (gauche.ces.utf8)
+     (else (set! use-api-new #f)))
+    (values conv crlf hdl ces-new use-api-new)))
+
 ;; 文字エンコーディングのチェック
 (define (check-ces ces1 ces2 err_ces)
   (if (not (ces-conversion-supported? ces1 ces2))
     (errorf "ces \"~s\" is not supported" err_ces)))
 
-;; 変換用パラメータの取得
-(define (get-msjis-param rmode hdl use-api)
-  (let* ((rdir     (redirected-handle? hdl))
-         (conv     (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
-         (crlf     (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
-         (use-api2 (if rdir #f use-api)))
-    (cond-expand
-     (gauche.ces.utf8)
-     (else (set! use-api2 #f)))
-    (values conv crlf hdl use-api2)))
-
 
 
 ;; 変換ポートの設定
-(define (msjis-mode :optional (rmode 0) (ces 'CP932) (use-api #f))
+(define (msjis-mode :optional (rmode 0) (ces '#f) (use-api #f))
   (if-let1 port (make-msjis-stdin-port  rmode ces use-api) (current-input-port  port))
   (if-let1 port (make-msjis-stdout-port rmode ces use-api) (current-output-port port))
   (if-let1 port (make-msjis-stderr-port rmode ces use-api) (current-error-port  port))
