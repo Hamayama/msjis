@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-3-9 v1.37
+;; 2016-3-10 v1.38
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -30,7 +30,7 @@
   (format (standard-output-port) "~8,'0Xh" (char->integer chr))
   (flush (standard-output-port)))
 (define (debug-print-buffer buf)
-  (display (map (cut format #f "~2,'0Xh" <>) (u8vector->list buf)) (standard-output-port))
+  (display (map (cut format "~2,'0Xh" <>) (u8vector->list buf)) (standard-output-port))
   (flush (standard-output-port)))
 
 ;; リダイレクトありかチェックする関数
@@ -167,35 +167,35 @@
 
 ;; 変換用パラメータの取得
 (define (get-msjis-param rmode hdl ces use-api stdin-flag)
-  (let ((rdir        (redirected-handle? hdl))
-        (conv        #f)
-        (crlf        #f)
-        (ces-new     ces)
-        (use-api-new use-api))
+  (let ((rdir     (redirected-handle? hdl))
+        (conv     #f)
+        (crlf     #f)
+        (ces2     ces)
+        (use-api2 use-api))
     ;; 文字エンコーディングが未指定のときは、コードページを取得して自動設定する
-    (if (not ces)
+    (if (not ces2)
       (let1 cp (if stdin-flag (sys-get-console-cp) (sys-get-console-output-cp))
         (case cp
-          ((65001) (set! ces-new 'UTF-8)
-                   (set! use-api-new #t))
-          (else    (set! ces-new (string->symbol (format "CP~d" cp)))))))
+          ((65001) (set! ces2 'UTF-8)
+                   (set! use-api2 #t))
+          (else    (set! ces2 (string->symbol (format "CP~d" cp)))))))
     ;; 文字エンコーディングのチェック
     (if stdin-flag
-      (check-ces ces-new (gauche-character-encoding) ces-new)
-      (check-ces (gauche-character-encoding) ces-new ces-new))
+      (check-ces ces2 (gauche-character-encoding) ces2)
+      (check-ces (gauche-character-encoding) ces2 ces2))
     ;; 変換用パラメータの取得
     (set! conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
     (set! crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
-    (set! use-api-new (if rdir #f use-api-new))
+    (if rdir (set! use-api2 #f))
     (cond-expand
      (gauche.ces.utf8)
-     (else (set! use-api-new #f)))
-    (values conv crlf hdl ces-new use-api-new)))
+     (else (set! use-api2 #f)))
+    (values conv crlf hdl ces2 use-api2)))
 
 ;; 文字エンコーディングのチェック
-(define (check-ces ces1 ces2 err_ces)
-  (if (not (ces-conversion-supported? ces1 ces2))
-    (errorf "ces \"~s\" is not supported" err_ces)))
+(define (check-ces ces-from ces-to ces-error)
+  (if (not (ces-conversion-supported? ces-from ces-to))
+    (errorf "ces \"~a\" is not supported" ces-error)))
 
 
 
