@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-3-10 v1.38
+;; 2016-3-15 v1.39
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -52,9 +52,10 @@
   (if use-api
     ;; Windows API 使用のとき
     (make-msjis-getc-sub port hdl 'UTF-16LE #t zero? 4 2 2)
-    ;; その他のとき
+    ;; Windows API 未使用のとき
     (make-msjis-getc-sub port hdl ces #f eof-object? 6 0 1)))
 
+;; 1文字入力の変換処理サブ
 (define (make-msjis-getc-sub port hdl ces use-api eofcheckfunc maxbytes extrabytes readbytes)
   ;; 手続きを作って返す
   (lambda ()
@@ -98,7 +99,7 @@
   (if use-api
     ;; Windows API 使用のとき
     (lambda (chr) ((make-msjis-puts-sub1 hdl 4096) (string chr)))
-    ;; その他のとき
+    ;; Windows API 未使用のとき
     (lambda (chr) ((make-msjis-puts-sub2 port conv crlf ces) (string chr)))))
 
 ;; 文字列出力の変換処理
@@ -106,9 +107,10 @@
   (if use-api
     ;; Windows API 使用のとき
     (make-msjis-puts-sub1 hdl 4096)
-    ;; その他のとき
+    ;; Windows API 未使用のとき
     (make-msjis-puts-sub2 port conv crlf ces)))
 
+;; 文字列出力の変換処理サブ1 (Windows API 使用)
 (define (make-msjis-puts-sub1 hdl maxchars)
   ;; 手続きを作って返す
   (lambda (str)
@@ -121,6 +123,7 @@
         (sys-write-console hdl (string-copy str i (+ i maxchars)))
         (loop (+ i maxchars)))))))
 
+;; 文字列出力の変換処理サブ2 (Windows API 未使用)
 (define (make-msjis-puts-sub2 port conv crlf ces)
   ;; 手続きを作って返す
   (lambda (str)
@@ -183,13 +186,14 @@
     (if stdin-flag
       (check-ces ces2 (gauche-character-encoding) ces2)
       (check-ces (gauche-character-encoding) ces2 ces2))
-    ;; 変換用パラメータの取得
+    ;; 他の変換用パラメータの取得
     (set! conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
     (set! crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
     (if rdir (set! use-api2 #f))
     (cond-expand
      (gauche.ces.utf8)
      (else (set! use-api2 #f)))
+    ;; 結果を多値で返す
     (values conv crlf hdl ces2 use-api2)))
 
 ;; 文字エンコーディングのチェック
