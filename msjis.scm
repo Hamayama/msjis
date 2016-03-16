@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-3-15 v1.39
+;; 2016-3-16 v1.40
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -79,18 +79,13 @@
          (else
           ;; 文字コードの変換(外部コード→内部コード)
           (set! str (ces-convert (u8vector->string buf 0 (+ i readbytes)) ces))
-          (cond
-           ;; 文字が完成したとき
-           ((> (string-length str) 0)
-            ;(debug-print-char-code (string-ref str 0))
-            (set! chr (string-ref str 0)))
-           ;; 文字が未完成のとき
-           (else
-            (when (< (+ i readbytes) maxbytes)
-              (set! i (+ i readbytes))
-              (loop))
-            ;; ここに何か書くと末尾再帰でなくなるので注意
-            )))))
+          (guard (exc ((<error> exc)
+                       ;; 文字が未完成のとき
+                       (when (< (+ i readbytes) maxbytes)
+                         (set! i (+ i readbytes))
+                         (loop))))
+            ;; 文字が完成したとき
+            (set! chr (string-ref str 0))))))
       ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
       chr)))
 
@@ -190,9 +185,6 @@
     (set! conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
     (set! crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
     (if rdir (set! use-api2 #f))
-    (cond-expand
-     (gauche.ces.utf8)
-     (else (set! use-api2 #f)))
     ;; 結果を多値で返す
     (values conv crlf hdl ces2 use-api2)))
 
