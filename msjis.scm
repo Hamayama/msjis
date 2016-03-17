@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-3-17 v1.41
+;; 2016-3-17 v1.42
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -33,10 +33,9 @@
   (display (map (cut format "~2,'0Xh" <>) (u8vector->list buf)) (standard-output-port))
   (flush (standard-output-port)))
 
-;; リダイレクトありかチェックする関数
-;; (リダイレクトの有無はWin32APIのGetConsoleMode()が成功するかどうかで判定できる)
+;; リダイレクト有無のチェック
 (define (redirected-handle? hdl)
-  (guard (exc ((<system-error> exc) #t))
+  (guard (ex ((<system-error> ex) #t))
     (sys-get-console-mode hdl) #f))
 
 ;; 標準入出力のハンドルの保持
@@ -62,7 +61,7 @@
     (let ((chr #\null)
           (str "")
           (i   0)
-          ;; ReadConsole()がバッファサイズより1バイト多く書き込む件に対応
+          ;; ReadConsole がバッファサイズより1バイト多く書き込む件の対策
           (buf (make-u8vector (+ maxbytes extrabytes) 0))
           (ret 0))
       ;; 文字が完成するまで指定バイトずつ読み込む
@@ -79,11 +78,11 @@
          (else
           ;; 文字コードの変換(外部コード→内部コード)
           (set! str (ces-convert (u8vector->string buf 0 (+ i readbytes)) ces ces2))
-          (guard (exc ((<error> exc)
-                       ;; 文字が未完成のとき
-                       (when (< (+ i readbytes) maxbytes)
-                         (set! i (+ i readbytes))
-                         (loop))))
+          (guard (ex ((<error> ex)
+                      ;; 文字が未完成のとき
+                      (when (< (+ i readbytes) maxbytes)
+                        (set! i (+ i readbytes))
+                        (loop))))
             ;; 文字が完成したとき
             (set! chr (string-ref str 0))))))
       ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
