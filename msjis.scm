@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-3-17 v1.42
+;; 2016-3-24 v1.50
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -14,6 +14,7 @@
   (use gauche.charconv)
   (use gauche.vport)
   (use gauche.uvector)
+  (use gauche.sequence) ; for-each-with-index用
   (use os.windows)
   (export
     msjis-mode
@@ -43,6 +44,11 @@
 (define stdin-handle  (sys-get-std-handle STD_INPUT_HANDLE))
 (define stdout-handle (sys-get-std-handle STD_OUTPUT_HANDLE))
 (define stderr-handle (sys-get-std-handle STD_ERROR_HANDLE))
+
+;; 入力については、Windows API は Unicode 版を使用する
+(guard (ex ((<error> ex) #f))
+  (procedure? sys-read-console-w)
+  (set! sys-read-console sys-read-console-w))
 
 
 
@@ -108,11 +114,33 @@
 (define (make-msjis-puts-sub1 hdl ces ces2 maxchars)
   (define (sys-write-console-sub str)
     (cond-expand
-     ;; Windows API が Unicode 版のとき (文字コード変換不要)
-     (gauche.ces.utf-8)
-     ;; Windows API が ANSI 版のとき    (文字コード変換必要)
-     (else (set! str (ces-convert str ces2 ces))))
-    (sys-write-console hdl str))
+     (gauche.ces.utf8
+      ;; Windows API が Unicode 版のとき
+      ;; (サロゲートペアの文字の折り返しの不具合対策)
+      (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
+             (w     (+ 1 (- (slot-ref cinfo 'window.right)
+                            (slot-ref cinfo 'window.left))))
+             (x     0)
+             (y     0)
+             (i_old 0))
+        (for-each-with-index
+         (lambda (i c)
+           (when (>= (char->integer c) #x10000)
+             (sys-write-console hdl (string-copy str i_old i))
+             (set! i_old i)
+             (set! cinfo (sys-get-console-screen-buffer-info hdl))
+             (set! x     (slot-ref cinfo 'cursor-position.x))
+             (set! y     (slot-ref cinfo 'cursor-position.y))
+             (when (> x (- w 4))
+               (sys-set-console-cursor-position hdl (- w 1) y)
+               (sys-write-console hdl " "))))
+         str)
+        (sys-write-console hdl (string-copy str i_old))))
+     (else
+      ;; Windows API が ANSI 版のとき
+      ;; (文字コードの変換が必要)
+      (set! str (ces-convert str ces2 ces))
+      (sys-write-console hdl str))))
   ;; 手続きを作って返す
   (lambda (str)
     ;; 指定文字数ずつ書き出す
@@ -185,13 +213,13 @@
                    (set! use-api #t))
           (else    (set! ces (string->symbol (format "CP~d" cp)))))))
     ;; Gauche の内部エンコーディングが sjis のときのエラー対策
-    ;; (円記号(#\x5C)を iconv が変換できずエラーになるケースがある。
-    ;;  対策として、特定の条件のときは、'SJIS を 'CP932 に変更する)
+    ;; (円記号を iconv が変換できずエラーになるケースがある。
+    ;;  対策として、特定の条件のときは 'SJIS を 'CP932 に変更する)
     (cond-expand
      (gauche.ces.sjis
-      (if (#/^CP932$/i (x->string ces))
-        (set! ces2 'CP932))
-      (when use-api
+      (if use-api (set! ces2 'CP932))
+      (when (not (and (yen-mark-conversion-ok? ces ces2)
+                      (yen-mark-conversion-ok? ces2 ces)))
         (if (#/^(SJIS|SHIFT[\-_]?JIS)$/i (x->string ces))
           (set! ces 'CP932))
         (set! ces2 'CP932)))
@@ -207,6 +235,10 @@
 (define (check-ces ces1 ces2 ces-err)
   (if (not (ces-conversion-supported? ces1 ces2))
     (errorf "ces \"~a\" is not supported" ces-err)))
+
+;; 円記号の変換チェック
+(define (yen-mark-conversion-ok? ces ces2)
+  (guard (ex (else #f)) (ces-convert "\\" ces ces2) #t))
 
 
 
