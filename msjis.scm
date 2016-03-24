@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-3-24 v1.50
+;; 2016-3-24 v1.51
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -46,9 +46,10 @@
 (define stderr-handle (sys-get-std-handle STD_ERROR_HANDLE))
 
 ;; 入力については、Windows API は Unicode 版を使用する
-(guard (ex ((<error> ex) #f))
-  (procedure? sys-read-console-w)
-  (set! sys-read-console sys-read-console-w))
+(define sys-read-console
+  (guard (ex ((<error> ex)
+              (with-module os.windows sys-read-console)))
+    (with-module os.windows sys-read-console-w)))
 
 
 
