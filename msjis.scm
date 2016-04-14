@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-3-24 v1.51
+;; 2016-4-15 v1.52
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -45,7 +45,7 @@
 (define stdout-handle (sys-get-std-handle STD_OUTPUT_HANDLE))
 (define stderr-handle (sys-get-std-handle STD_ERROR_HANDLE))
 
-;; 入力については、Windows API は Unicode 版を使用する
+;; 入力については、可能であれば、Windows API は Unicode 版を使用する
 (define sys-read-console
   (guard (ex ((<error> ex)
               (with-module os.windows sys-read-console)))
@@ -119,16 +119,14 @@
       ;; Windows API が Unicode 版のとき
       ;; (サロゲートペアの文字の折り返しの不具合対策)
       (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
-             (w     (+ 1 (- (slot-ref cinfo 'window.right)
-                            (slot-ref cinfo 'window.left))))
-             (x     0)
-             (y     0)
-             (i_old 0))
+             (w (+ 1 (- (slot-ref cinfo 'window.right)
+                        (slot-ref cinfo 'window.left))))
+             (x 0) (y 0) (i1 0))
         (for-each-with-index
-         (lambda (i c)
+         (lambda (i2 c)
            (when (>= (char->integer c) #x10000)
-             (sys-write-console hdl (string-copy str i_old i))
-             (set! i_old i)
+             (sys-write-console hdl (string-copy str i1 i2))
+             (set! i1 i2)
              (set! cinfo (sys-get-console-screen-buffer-info hdl))
              (set! x     (slot-ref cinfo 'cursor-position.x))
              (set! y     (slot-ref cinfo 'cursor-position.y))
@@ -136,7 +134,7 @@
                (sys-set-console-cursor-position hdl (- w 1) y)
                (sys-write-console hdl " "))))
          str)
-        (sys-write-console hdl (string-copy str i_old))))
+        (sys-write-console hdl (string-copy str i1))))
      (else
       ;; Windows API が ANSI 版のとき
       ;; (文字コードの変換が必要)
