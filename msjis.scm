@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-4-15 v1.52
+;; 2016-4-22 v1.53
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -40,16 +40,16 @@
     (sys-get-console-mode hdl) #f))
 
 ;; 標準入出力のハンドルの保持
-;; (保持しておかないとエラーになる。Gauche v0.9.4-rc2では修正ずみ)
+;; (保持しておかないとエラーになる。Gauche v0.9.4-rc2では修正済み)
 (define stdin-handle  (sys-get-std-handle STD_INPUT_HANDLE))
 (define stdout-handle (sys-get-std-handle STD_OUTPUT_HANDLE))
 (define stderr-handle (sys-get-std-handle STD_ERROR_HANDLE))
 
 ;; 入力については、可能であれば、Windows API は Unicode 版を使用する
 (define sys-read-console
-  (guard (ex ((<error> ex)
-              (with-module os.windows sys-read-console)))
-    (with-module os.windows sys-read-console-w)))
+  (if (global-variable-bound? 'os.windows 'sys-read-console-w)
+    (with-module os.windows sys-read-console-w)
+    (with-module os.windows sys-read-console)))
 
 
 
@@ -113,6 +113,7 @@
 
 ;; 文字列出力の変換処理サブ1 (Windows API 使用)
 (define (make-msjis-puts-sub1 hdl ces ces2 maxchars)
+  ;; Windows API の調整用サブ
   (define (sys-write-console-sub str)
     (cond-expand
      (gauche.ces.utf8
