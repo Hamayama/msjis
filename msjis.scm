@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-4-22 v1.53
+;; 2016-10-14 v1.54
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
@@ -95,14 +95,6 @@
       ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
       chr)))
 
-;; 1文字出力の変換処理
-(define (make-msjis-putc port conv crlf hdl ces ces2 use-api)
-  (if use-api
-    ;; Windows API 使用のとき
-    (lambda (chr) ((make-msjis-puts-sub1 hdl ces ces2 4096) (string chr)))
-    ;; Windows API 未使用のとき
-    (lambda (chr) ((make-msjis-puts-sub2 port conv crlf ces ces2) (string chr)))))
-
 ;; 文字列出力の変換処理
 (define (make-msjis-puts port conv crlf hdl ces ces2 use-api)
   (if use-api
@@ -142,27 +134,29 @@
       (set! str (ces-convert str ces2 ces))
       (sys-write-console hdl str))))
   ;; 手続きを作って返す
-  (lambda (str)
-    ;; 指定文字数ずつ書き出す
-    (let loop ((i 0))
-      (cond
-       ((<= (string-length str) (+ i maxchars))
-        (sys-write-console-sub (string-copy str i)))
-       (else
-        (sys-write-console-sub (string-copy str i (+ i maxchars)))
-        (loop (+ i maxchars)))))))
+  (lambda (str/char)
+    (let1 str (x->string str/char)
+      ;; 指定文字数ずつ書き出す
+      (let loop ((i 0))
+        (cond
+         ((<= (string-length str) (+ i maxchars))
+          (sys-write-console-sub (string-copy str i)))
+         (else
+          (sys-write-console-sub (string-copy str i (+ i maxchars)))
+          (loop (+ i maxchars))))))))
 
 ;; 文字列出力の変換処理サブ2 (Windows API 未使用)
 (define (make-msjis-puts-sub2 port conv crlf ces ces2)
   ;; 手続きを作って返す
-  (lambda (str)
-    (if crlf (set! str (regexp-replace-all #/\n/ str "\r\n")))
-    (if conv (set! str (ces-convert str ces2 ces)))
-    (let1 buf (string->u8vector str)
-      ;(debug-print-buffer buf)
-      ;; バイト列を書き出す
-      (write-block buf port)
-      (flush port))))
+  (lambda (str/char)
+    (let1 str (x->string str/char)
+      (if crlf (set! str (regexp-replace-all #/\n/ str "\r\n")))
+      (if conv (set! str (ces-convert str ces2 ces)))
+      (let1 buf (string->u8vector str)
+        ;(debug-print-buffer buf)
+        ;; バイト列を書き出す
+        (write-block buf port)
+        (flush port)))))
 
 
 
@@ -181,7 +175,7 @@
       (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE) ces use-api #f)
     (if (or conv crlf)
       (make <virtual-output-port>
-        :putc (make-msjis-putc (standard-output-port) conv crlf hdl ces ces2 use-api)
+        :putc (make-msjis-puts (standard-output-port) conv crlf hdl ces ces2 use-api)
         :puts (make-msjis-puts (standard-output-port) conv crlf hdl ces ces2 use-api))
       #f)))
 
@@ -191,7 +185,7 @@
       (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE) ces use-api #f)
     (if (or conv crlf)
       (make <virtual-output-port>
-        :putc (make-msjis-putc (standard-error-port) conv crlf hdl ces ces2 use-api)
+        :putc (make-msjis-puts (standard-error-port) conv crlf hdl ces ces2 use-api)
         :puts (make-msjis-puts (standard-error-port) conv crlf hdl ces ces2 use-api))
       #f)))
 
@@ -247,5 +241,5 @@
   (if-let1 port (make-msjis-stdin-port  rmode ces use-api) (current-input-port  port))
   (if-let1 port (make-msjis-stdout-port rmode ces use-api) (current-output-port port))
   (if-let1 port (make-msjis-stderr-port rmode ces use-api) (current-error-port  port))
-  (undefined))
+  (values))
 

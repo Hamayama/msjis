@@ -169,10 +169,10 @@
 
 ## 環境等
 - OS
-  - Windows XP Home SP3
   - Windows 8.1 (64bit)
+  - Windows XP Home SP3
 - 言語
-  - Gauche v0.9.5_pre1
+  - Gauche v0.9.5
   - Gauche v0.9.4
   - Gauche v0.9.3.3
 
@@ -230,6 +230,7 @@
 - 2016-3-24  v1.51 Gaucheの内部エンコーディングがsjisのときのエラー対策
 - 2016-4-15  v1.52 一部処理見直し(sys-write-console-sub)
 - 2016-4-22  v1.53 一部処理見直し(sys-read-console)
+- 2016-10-14 v1.54 一部処理見直し(make-msjis-putc削除,msjis-modeの戻り値変更)
 
 
-(2016-5-12)
+(2016-10-14)
