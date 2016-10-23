@@ -164,7 +164,7 @@
 
 6. Gauche v0.9.3.3 では、ReadConsole(),WriteConsole() のラッパーの  
    sys-read-console,sys-write-console が正常に動作しない。  
-   (Gauche v0.9.4 では修正ずみ)
+   (Gauche v0.9.4 では修正済み)
 
 
 ## 環境等
@@ -233,4 +233,4 @@
 - 2016-10-14 v1.54 一部処理見直し(make-msjis-putc削除,msjis-modeの戻り値変更)
 
 
-(2016-10-15)
+(2016-10-23)
