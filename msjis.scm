@@ -1,11 +1,11 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-10-14 v1.54
+;; 2016-11-25 v1.55
 ;;
 ;; ＜内容＞
-;;   Windows のコマンドプロンプトで Gauche(gosh.exe) を使うときに、
-;;   日本語(CP932)の表示と入力を可能とするモジュールです。
+;;   Windows のコマンドプロンプトで Gauche を使うときに、
+;;   日本語 (CP932) の表示と入力を可能とするモジュールです。
 ;;
 ;;   詳細については、以下のページを参照ください。
 ;;   https://github.com/Hamayama/msjis
@@ -40,12 +40,14 @@
     (sys-get-console-mode hdl) #f))
 
 ;; 標準入出力のハンドルの保持
-;; (保持しておかないとエラーになる。Gauche v0.9.4-rc2では修正済み)
+;; (保持しておかないとエラーになる。Gauche v0.9.4 では修正済み)
 (define stdin-handle  (sys-get-std-handle STD_INPUT_HANDLE))
 (define stdout-handle (sys-get-std-handle STD_OUTPUT_HANDLE))
 (define stderr-handle (sys-get-std-handle STD_ERROR_HANDLE))
 
-;; 入力については、可能であれば、Windows API は Unicode 版を使用する
+;; 入力については、Windows API は Unicode 版を使用する(将来用)
+;; (現状は、Gauche の内部エンコーディングが utf-8 のときのみ
+;;  Unicode 版になっている)
 (define sys-read-console
   (if (global-variable-bound? 'os.windows 'sys-read-console-w)
     (with-module os.windows sys-read-console-w)
@@ -191,14 +193,10 @@
 
 ;; 変換用パラメータの取得
 (define (get-msjis-param rmode hdl ces use-api stdin-flag)
-  (let ((rdir (redirected-handle? hdl))
-        (conv #f)
-        (crlf #f)
-        (ces2 (gauche-character-encoding)))
-    ;; 変換用パラメータの取得
-    (set! conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
-    (set! crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
-    (if rdir (set! use-api #f))
+  (let* ((rdir (redirected-handle? hdl))
+         (conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
+         (crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
+         (ces2 (gauche-character-encoding)))
     ;; 文字エンコーディングが未指定のときは、コードページを取得して自動設定する
     (if (not ces)
       (let1 cp (if stdin-flag (sys-get-console-cp) (sys-get-console-output-cp))
@@ -222,6 +220,8 @@
     (if stdin-flag
       (check-ces ces ces2 ces)
       (check-ces ces2 ces ces))
+    ;; リダイレクトありのときは Windows API は使用不可
+    (if rdir (set! use-api #f))
     ;; 結果を多値で返す
     (values conv crlf hdl ces ces2 use-api)))
 

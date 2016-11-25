@@ -3,7 +3,7 @@
 ![image](image.png)
 
 ## 概要
-- Windows のコマンドプロンプトで Gauche (gosh.exe) を使うときに、  
+- Windows のコマンドプロンプトで Gauche を使うときに、  
   日本語 (CP932) の表示と入力を可能とするモジュールです。
 
 
@@ -226,6 +226,7 @@
 - 2016-4-15  v1.52 一部処理見直し(sys-write-console-sub)
 - 2016-4-22  v1.53 一部処理見直し(sys-read-console)
 - 2016-10-14 v1.54 一部処理見直し(make-msjis-putc削除,msjis-modeの戻り値変更)
+- 2016-11-25 v1.55 Windows API の使用フラグ処理修正等
 
 
-(2016-10-28)
+(2016-11-25)
