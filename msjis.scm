@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-1-8 v1.56
+;; 2017-1-8 v1.57
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -59,28 +59,29 @@
 (define (make-msjis-getc port hdl ces ces2 use-api)
   (if use-api
     ;; Windows API 使用のとき
-    (make-msjis-getc-sub port hdl 'UTF-16LE ces2 #t zero? 4 2 2)
+    (make-msjis-getc-sub port hdl 'UTF-16LE ces2 #t 4 2 2)
     ;; Windows API 未使用のとき
-    (make-msjis-getc-sub port hdl ces ces2 #f eof-object? 6 0 1)))
+    (make-msjis-getc-sub port hdl ces       ces2 #f 6 0 1)))
 
 ;; 1文字入力の変換処理サブ(内部処理用)
-(define (make-msjis-getc-sub port hdl ces ces2 use-api eofcheckfunc maxbytes extrabytes readbytes)
+(define (make-msjis-getc-sub port hdl ces ces2 use-api maxbytes extrabytes readbytes)
   ;; 手続きを作って返す
   (lambda ()
-    (let ((chr #\null)
-          (str "")
-          (i   0)
+    (let ((chr      #\null)
+          (str      "")
+          (i        0)
           ;; ReadConsole がバッファサイズより1バイト多く書き込む件の対策
-          (buf (make-u8vector (+ maxbytes extrabytes) 0))
-          (ret 0))
+          (buf      (make-u8vector (+ maxbytes extrabytes) 0))
+          (eof-flag #f))
       ;; 文字が完成するまで指定バイトずつ読み込む
       (let loop ()
-        (if use-api
-          (set! ret (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
-          (set! ret (read-block! buf port i (+ i readbytes))))
+        (set! eof-flag
+              (if use-api
+                (zero? (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
+                (eof-object? (read-block! buf port i (+ i readbytes)))))
         (cond
          ;; ファイル終端(EOF)のとき
-         ((eofcheckfunc ret)
+         (eof-flag
           ;(debug-print-str "[EOF]")
           (set! chr (eof-object)))
          ;; ファイル終端(EOF)以外のとき
