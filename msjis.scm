@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2016-11-25 v1.55
+;; 2017-1-8 v1.56
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -55,7 +55,7 @@
 
 
 
-;; 1文字入力の変換処理
+;; 1文字入力の変換処理(内部処理用)
 (define (make-msjis-getc port hdl ces ces2 use-api)
   (if use-api
     ;; Windows API 使用のとき
@@ -63,7 +63,7 @@
     ;; Windows API 未使用のとき
     (make-msjis-getc-sub port hdl ces ces2 #f eof-object? 6 0 1)))
 
-;; 1文字入力の変換処理サブ
+;; 1文字入力の変換処理サブ(内部処理用)
 (define (make-msjis-getc-sub port hdl ces ces2 use-api eofcheckfunc maxbytes extrabytes readbytes)
   ;; 手続きを作って返す
   (lambda ()
@@ -97,7 +97,9 @@
       ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
       chr)))
 
-;; 文字列出力の変換処理
+
+
+;; 文字列出力の変換処理(内部処理用)
 (define (make-msjis-puts port conv crlf hdl ces ces2 use-api)
   (if use-api
     ;; Windows API 使用のとき
@@ -105,7 +107,7 @@
     ;; Windows API 未使用のとき
     (make-msjis-puts-sub2 port conv crlf ces ces2)))
 
-;; 文字列出力の変換処理サブ1 (Windows API 使用)
+;; 文字列出力の変換処理サブ1 (Windows API 使用)(内部処理用)
 (define (make-msjis-puts-sub1 hdl ces ces2 maxchars)
   ;; Windows API の調整用サブ
   (define (sys-write-console-sub str)
@@ -147,7 +149,7 @@
           (sys-write-console-sub (string-copy str i (+ i maxchars)))
           (loop (+ i maxchars))))))))
 
-;; 文字列出力の変換処理サブ2 (Windows API 未使用)
+;; 文字列出力の変換処理サブ2 (Windows API 未使用)(内部処理用)
 (define (make-msjis-puts-sub2 port conv crlf ces ces2)
   ;; 手続きを作って返す
   (lambda (str/char)
@@ -162,37 +164,16 @@
 
 
 
-;; 標準入力の変換ポートの作成
-(define (make-msjis-stdin-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf hdl ces ces2 use-api)
-      (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE) ces use-api #t)
-    (if conv
-      (make <virtual-input-port>
-        :getc (make-msjis-getc (standard-input-port) hdl ces ces2 use-api))
-      #f)))
-
-;; 標準出力の変換ポートの作成
-(define (make-msjis-stdout-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf hdl ces ces2 use-api)
-      (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE) ces use-api #f)
-    (if (or conv crlf)
-      (make <virtual-output-port>
-        :putc (make-msjis-puts (standard-output-port) conv crlf hdl ces ces2 use-api)
-        :puts (make-msjis-puts (standard-output-port) conv crlf hdl ces ces2 use-api))
-      #f)))
-
-;; 標準エラー出力の変換ポートの作成
-(define (make-msjis-stderr-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf hdl ces ces2 use-api)
-      (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE) ces use-api #f)
-    (if (or conv crlf)
-      (make <virtual-output-port>
-        :putc (make-msjis-puts (standard-error-port) conv crlf hdl ces ces2 use-api)
-        :puts (make-msjis-puts (standard-error-port) conv crlf hdl ces ces2 use-api))
-      #f)))
-
-;; 変換用パラメータの取得
+;; 変換用パラメータの取得(内部処理用)
 (define (get-msjis-param rmode hdl ces use-api stdin-flag)
+  ;; 文字エンコーディングのチェック
+  (define (check-ces ces1 ces2 ces-err)
+    (if (not (ces-conversion-supported? ces1 ces2))
+      (errorf "ces \"~a\" is not supported" ces-err)))
+  ;; 円記号の変換チェック
+  (define (yen-mark-conversion-ok? ces ces2)
+    (guard (ex (else #f)) (ces-convert "\\" ces ces2) #t))
+  ;; 変換用パラメータの取得
   (let* ((rdir (redirected-handle? hdl))
          (conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
          (crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
@@ -225,14 +206,36 @@
     ;; 結果を多値で返す
     (values conv crlf hdl ces ces2 use-api)))
 
-;; 文字エンコーディングのチェック
-(define (check-ces ces1 ces2 ces-err)
-  (if (not (ces-conversion-supported? ces1 ces2))
-    (errorf "ces \"~a\" is not supported" ces-err)))
 
-;; 円記号の変換チェック
-(define (yen-mark-conversion-ok? ces ces2)
-  (guard (ex (else #f)) (ces-convert "\\" ces ces2) #t))
+
+;; 標準入力の変換ポートの作成
+(define (make-msjis-stdin-port :optional (rmode 0) (ces '#f) (use-api #f))
+  (receive (conv crlf hdl ces ces2 use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_INPUT_HANDLE) ces use-api #t)
+    (if conv
+      (make <virtual-input-port>
+        :getc (make-msjis-getc (standard-input-port) hdl ces ces2 use-api))
+      #f)))
+
+;; 標準出力の変換ポートの作成
+(define (make-msjis-stdout-port :optional (rmode 0) (ces '#f) (use-api #f))
+  (receive (conv crlf hdl ces ces2 use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_OUTPUT_HANDLE) ces use-api #f)
+    (if (or conv crlf)
+      (make <virtual-output-port>
+        :putc (make-msjis-puts (standard-output-port) conv crlf hdl ces ces2 use-api)
+        :puts (make-msjis-puts (standard-output-port) conv crlf hdl ces ces2 use-api))
+      #f)))
+
+;; 標準エラー出力の変換ポートの作成
+(define (make-msjis-stderr-port :optional (rmode 0) (ces '#f) (use-api #f))
+  (receive (conv crlf hdl ces ces2 use-api)
+      (get-msjis-param rmode (sys-get-std-handle STD_ERROR_HANDLE) ces use-api #f)
+    (if (or conv crlf)
+      (make <virtual-output-port>
+        :putc (make-msjis-puts (standard-error-port) conv crlf hdl ces ces2 use-api)
+        :puts (make-msjis-puts (standard-error-port) conv crlf hdl ces ces2 use-api))
+      #f)))
 
 
 
