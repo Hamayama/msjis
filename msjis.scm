@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-1-8 v1.58
+;; 2017-9-4 v1.59
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -67,33 +67,31 @@
 (define (make-msjis-getc-sub port hdl ces ces2 use-api maxbytes extrabytes readbytes)
   ;; 手続きを作って返す
   (lambda ()
-    (let ((chr #\null)
-          (str "")
-          (i   0)
-          ;; ReadConsole がバッファサイズより1バイト多く書き込む件の対策
-          (buf (make-u8vector (+ maxbytes extrabytes) 0)))
-      ;; 文字が完成するまで指定バイトずつ読み込む
-      (let loop ()
-        (if (if use-api
-              (zero? (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
-              (eof-object? (read-block! buf port i (+ i readbytes))))
-          ;; ファイル終端(EOF)のとき
-          (begin
-            ;(debug-print-str "[EOF]")
-            (set! chr (eof-object)))
-          ;; ファイル終端(EOF)以外のとき
-          (begin
+    (rlet1 chr #\null
+      ;; ReadConsole がバッファサイズより1バイト多く書き込む件の対策
+      (let ((buf (make-u8vector (+ maxbytes extrabytes) 0))
+            (i   0))
+        ;; 文字が完成するまで指定バイトずつ読み込む
+        (let loop ()
+          (if (if use-api
+                (zero? (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
+                (eof-object? (read-block! buf port i (+ i readbytes))))
+            ;; ファイル終端(EOF)のとき
+            (begin
+              ;(debug-print-str "[EOF]")
+              (set! chr (eof-object)))
+            ;; ファイル終端(EOF)以外のとき
             ;; 文字コードの変換(外部コード→内部コード)
-            (set! str (ces-convert (u8vector->string buf 0 (+ i readbytes)) ces ces2))
-            (guard (ex ((<error> ex)
-                        ;; 文字が未完成のとき
-                        (when (< (+ i readbytes) maxbytes)
-                          (set! i (+ i readbytes))
-                          (loop))))
-              ;; 文字が完成したとき
-              (set! chr (string-ref str 0))))))
-      ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
-      chr)))
+            (let1 str (ces-convert (u8vector->string buf 0 (+ i readbytes)) ces ces2)
+              (guard (ex ((<error> ex)
+                          ;; 文字が未完成のとき
+                          (when (< (+ i readbytes) maxbytes)
+                            (set! i (+ i readbytes))
+                            (loop))))
+                ;; 文字が完成したとき
+                (set! chr (string-ref str 0))))))
+        ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
+        ))))
 
 
 
@@ -114,20 +112,20 @@
       ;; Windows API が Unicode 版のとき
       ;; (サロゲートペアの文字の折り返しの不具合対策)
       (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
-             (w (+ 1 (- (slot-ref cinfo 'window.right)
-                        (slot-ref cinfo 'window.left))))
-             (x 0) (y 0) (i1 0))
+             (w     (+ 1 (- (slot-ref cinfo 'window.right)
+                            (slot-ref cinfo 'window.left))))
+             (i1    0))
         (for-each-with-index
          (lambda (i2 c)
            (when (>= (char->integer c) #x10000)
              (sys-write-console hdl (string-copy str i1 i2))
              (set! i1 i2)
-             (set! cinfo (sys-get-console-screen-buffer-info hdl))
-             (set! x     (slot-ref cinfo 'cursor-position.x))
-             (set! y     (slot-ref cinfo 'cursor-position.y))
-             (when (> x (- w 4))
-               (sys-set-console-cursor-position hdl (- w 1) y)
-               (sys-write-console hdl " "))))
+             (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
+                    (x     (slot-ref cinfo 'cursor-position.x))
+                    (y     (slot-ref cinfo 'cursor-position.y)))
+               (when (> x (- w 4))
+                 (sys-set-console-cursor-position hdl (- w 1) y)
+                 (sys-write-console hdl " ")))))
          str)
         (sys-write-console hdl (string-copy str i1))))
      (else
@@ -166,18 +164,15 @@
 (define (get-msjis-param rmode hdl ces use-api stdin-flag)
   ;; 文字エンコーディングのチェック
   (define (check-ces ces1 ces2 ces-err)
-    (if (not (ces-conversion-supported? ces1 ces2))
+    (unless (ces-conversion-supported? ces1 ces2)
       (errorf "ces \"~a\" is not supported" ces-err)))
-  ;; 円記号の変換チェック
-  (define (yen-mark-conversion-ok? ces ces2)
-    (guard (ex (else #f)) (ces-convert "\\" ces ces2) #t))
   ;; 変換用パラメータの取得
   (let* ((rdir (redirected-handle? hdl))
          (conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
          (crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
          (ces2 (gauche-character-encoding)))
     ;; 文字エンコーディングが未指定のときは、コードページを取得して自動設定する
-    (if (not ces)
+    (unless ces
       (let1 cp (if stdin-flag (sys-get-console-cp) (sys-get-console-output-cp))
         (case cp
           ((65001) (set! ces 'UTF-8)
@@ -185,15 +180,12 @@
           (else    (set! ces (string->symbol (format "CP~d" cp)))))))
     ;; Gauche の内部エンコーディングが sjis のときのエラー対策
     ;; (円記号を iconv が変換できずエラーになるケースがある。
-    ;;  対策として、特定の条件のときは 'SJIS を 'CP932 に変更する)
+    ;;  対策として、文字エンコーディングを 'SJIS から 'CP932 に変更する)
     (cond-expand
      (gauche.ces.sjis
-      (if use-api (set! ces2 'CP932))
-      (when (not (and (yen-mark-conversion-ok? ces ces2)
-                      (yen-mark-conversion-ok? ces2 ces)))
-        (if (#/^(SJIS|SHIFT[\-_]?JIS)$/i (x->string ces))
-          (set! ces 'CP932))
-        (set! ces2 'CP932)))
+      (set! ces2 'CP932)
+      (if (#/^(SJIS|SHIFT[\-_]?JIS)$/i (x->string ces))
+        (set! ces 'CP932)))
      (else))
     ;; 文字エンコーディングのチェック
     (if stdin-flag
