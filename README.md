@@ -142,14 +142,18 @@
 3. Incorrect Unicode output on Windows Console  
    https://ghc.haskell.org/trac/ghc/ticket/4471  
    (コマンドプロンプトで CP65001 (UTF-8) を選択したときに不具合が発生する。  
-    具体的には、WriteFile() の結果がフォントによって、文字数を返したり バイト数を  
-    返したりする。対策としては、WriteFile() の替わりに WriteConsole() を使うことが  
-    挙げられる)
+    具体的には、WriteFile() の結果がフォントによって、  
+    文字数を返したり (TrueTypeフォントの場合)  
+    バイト数を返したり (ラスターフォントの場合) する。  
+    対策としては、WriteFile() の替わりに WriteConsole() を使うことが挙げられる)
 
 4. ReadConsole function (Community Additions : ReadConsole writes an extra byte)  
    https://msdn.microsoft.com/en-us/library/windows/desktop/ms684958  
    (ReadConsole() がバッファサイズより1バイト多く書き込む)  
-   (現在コメント欄が見られなくなっているようです)
+   (現在コメント欄が見られなくなっているようです)  
+   Windows API の ReadConsoleW の再現テスト  
+   https://gist.github.com/Hamayama/8b8e71c956e44e7e4bd73421d68fe97d  
+   (再現テストを行ってみました)
 
 5. Windows XP で ReadConsole() を使用すると、文字化けが発生することがある。  
    (行頭の文字が「g」に化ける)  
@@ -232,6 +236,7 @@
 - 2017-1-8   v1.57 EOFチェック処理見直し
 - 2017-1-8   v1.58 EOFチェック処理見直し
 - 2017-9-4   v1.59 一部処理見直し(make-msjis-getc-sub,sys-write-console-sub,get-msjis-param)
+- 2017-9-6   v1.60 標準入出力のハンドルを(念のため)キャッシュしないようにした
 
 
-(2017-9-4)
+(2017-9-6)
