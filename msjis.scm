@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-11 v1.62
+;; 2017-9-12 v1.63
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -246,7 +246,7 @@
       (get-msjis-param rmode STD_ERROR_HANDLE ces use-api)
     (if (or conv crlf)
       (make <msjis-output-port>
-        :name "windows console conversion output error"
+        :name "windows console conversion error output"
         :putc (make-msjis-puts (standard-error-port) conv crlf
                                STD_ERROR_HANDLE ces ces2 use-api)
         :puts (make-msjis-puts (standard-error-port) conv crlf
