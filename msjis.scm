@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-6 v1.60
+;; 2017-9-11 v1.61
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -14,7 +14,6 @@
   (use gauche.charconv)
   (use gauche.vport)
   (use gauche.uvector)
-  (use gauche.sequence) ; for-each-with-index用
   (use os.windows)
   (export
     msjis-mode
@@ -64,7 +63,8 @@
     (make-msjis-getc-sub port hdl-type ces       ces2 #f 6 0 1)))
 
 ;; 1文字入力の変換処理サブ(内部処理用)
-(define (make-msjis-getc-sub port hdl-type ces ces2 use-api maxbytes extrabytes readbytes)
+(define (make-msjis-getc-sub port hdl-type ces ces2 use-api
+                             maxbytes extrabytes readbytes)
   ;; 手続きを作って返す
   (lambda ()
     (rlet1 chr #\null
@@ -75,7 +75,8 @@
         ;; 文字が完成するまで指定バイトずつ読み込む
         (let loop ()
           (if (if use-api
-                (zero? (sys-read-console hdl (uvector-alias <u8vector> buf i (+ i readbytes))))
+                (zero? ($ sys-read-console hdl
+                          (uvector-alias <u8vector> buf i (+ i readbytes))))
                 (eof-object? (read-block! buf port i (+ i readbytes))))
             ;; ファイル終端(EOF)のとき
             (begin
@@ -83,7 +84,8 @@
               (set! chr (eof-object)))
             ;; ファイル終端(EOF)以外のとき
             ;; 文字コードの変換(外部コード→内部コード)
-            (let1 str (ces-convert (u8vector->string buf 0 (+ i readbytes)) ces ces2)
+            (let1 str (ces-convert (u8vector->string buf 0 (+ i readbytes))
+                                   ces ces2)
               (guard (ex ((<error> ex)
                           ;; 文字が未完成のとき
                           (when (< (+ i readbytes) maxbytes)
@@ -115,19 +117,22 @@
       (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
              (w     (+ 1 (- (slot-ref cinfo 'window.right)
                             (slot-ref cinfo 'window.left))))
-             (i1    0))
-        (for-each-with-index
-         (lambda (i2 c)
-           (when (>= (char->integer c) #x10000)
-             (sys-write-console hdl (string-copy str i1 i2))
-             (set! i1 i2)
-             (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
-                    (x     (slot-ref cinfo 'cursor-position.x))
-                    (y     (slot-ref cinfo 'cursor-position.y)))
-               (when (> x (- w 4))
-                 (sys-set-console-cursor-position hdl (- w 1) y)
-                 (sys-write-console hdl " ")))))
-         str)
+             (len   (string-length str))
+             (i1    0)
+             (i2    0))
+        (let loop ([c (string-ref str 0)])
+          (when (>= (char->integer c) #x10000)
+            (sys-write-console hdl (string-copy str i1 i2))
+            (set! i1 i2)
+            (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
+                   (x     (slot-ref cinfo 'cursor-position.x))
+                   (y     (slot-ref cinfo 'cursor-position.y)))
+              (when (> x (- w 4))
+                (sys-set-console-cursor-position hdl (- w 1) y)
+                (sys-write-console hdl " "))))
+          (inc! i2)
+          (if (< i2 len)
+            (loop (string-ref str i2))))
         (sys-write-console hdl (string-copy str i1))))
      (else
       ;; Windows API が ANSI 版のとき
@@ -163,19 +168,22 @@
 
 
 ;; 変換用パラメータの取得(内部処理用)
-(define (get-msjis-param rmode hdl-type ces use-api stdin-flag)
+(define (get-msjis-param rmode hdl-type ces use-api)
   ;; 文字エンコーディングのチェック
   (define (check-ces ces1 ces2 ces-err)
     (unless (ces-conversion-supported? ces1 ces2)
       (errorf "ces \"~a\" is not supported" ces-err)))
   ;; 変換用パラメータの取得
-  (let* ((rdir (redirected-handle? (sys-get-std-handle hdl-type)))
-         (conv (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
-         (crlf (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
-         (ces2 (gauche-character-encoding)))
+  (let* ((stdin-flag (eqv? hdl-type STD_INPUT_HANDLE))
+         (rdir       (redirected-handle? (sys-get-std-handle hdl-type)))
+         (conv       (if rdir (if (or (= rmode 2) (= rmode 3)) #t #f) #t))
+         (crlf       (if rdir (if (or (= rmode 1) (= rmode 3)) #t #f) #f))
+         (ces2       (gauche-character-encoding)))
     ;; 文字エンコーディングが未指定のときは、コードページを取得して自動設定する
     (unless ces
-      (let1 cp (if stdin-flag (sys-get-console-cp) (sys-get-console-output-cp))
+      (let1 cp (if stdin-flag
+                 (sys-get-console-cp)
+                 (sys-get-console-output-cp))
         (case cp
           ((65001)
            (set! ces 'UTF-8)
@@ -198,37 +206,42 @@
     ;; リダイレクトありのときは Windows API は使用不可
     (if rdir (set! use-api #f))
     ;; 結果を多値で返す
-    (values conv crlf hdl-type ces ces2 use-api)))
+    (values conv crlf ces ces2 use-api)))
 
 
 
 ;; 標準入力の変換ポートの作成
 (define (make-msjis-stdin-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf hdl-type ces ces2 use-api)
-      (get-msjis-param rmode STD_INPUT_HANDLE ces use-api #t)
+  (receive (conv crlf ces ces2 use-api)
+      (get-msjis-param rmode STD_INPUT_HANDLE ces use-api)
     (if conv
       (make <virtual-input-port>
-        :getc (make-msjis-getc (standard-input-port) hdl-type ces ces2 use-api))
+        :getc (make-msjis-getc (standard-input-port)
+                               STD_INPUT_HANDLE ces ces2 use-api))
       #f)))
 
 ;; 標準出力の変換ポートの作成
 (define (make-msjis-stdout-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf hdl-type ces ces2 use-api)
-      (get-msjis-param rmode STD_OUTPUT_HANDLE ces use-api #f)
+  (receive (conv crlf ces ces2 use-api)
+      (get-msjis-param rmode STD_OUTPUT_HANDLE ces use-api)
     (if (or conv crlf)
       (make <virtual-output-port>
-        :putc (make-msjis-puts (standard-output-port) conv crlf hdl-type ces ces2 use-api)
-        :puts (make-msjis-puts (standard-output-port) conv crlf hdl-type ces ces2 use-api))
+        :putc (make-msjis-puts (standard-output-port) conv crlf
+                               STD_OUTPUT_HANDLE ces ces2 use-api)
+        :puts (make-msjis-puts (standard-output-port) conv crlf
+                               STD_OUTPUT_HANDLE ces ces2 use-api))
       #f)))
 
 ;; 標準エラー出力の変換ポートの作成
 (define (make-msjis-stderr-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf hdl-type ces ces2 use-api)
-      (get-msjis-param rmode STD_ERROR_HANDLE ces use-api #f)
+  (receive (conv crlf ces ces2 use-api)
+      (get-msjis-param rmode STD_ERROR_HANDLE ces use-api)
     (if (or conv crlf)
       (make <virtual-output-port>
-        :putc (make-msjis-puts (standard-error-port) conv crlf hdl-type ces ces2 use-api)
-        :puts (make-msjis-puts (standard-error-port) conv crlf hdl-type ces ces2 use-api))
+        :putc (make-msjis-puts (standard-error-port) conv crlf
+                               STD_ERROR_HANDLE ces ces2 use-api)
+        :puts (make-msjis-puts (standard-error-port) conv crlf
+                               STD_ERROR_HANDLE ces ces2 use-api))
       #f)))
 
 
