@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-11 v1.61
+;; 2017-9-11 v1.62
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -32,6 +32,12 @@
 (define (debug-print-buffer buf)
   (display (map (cut format "~2,'0Xh" <>) (u8vector->list buf)) (standard-output-port))
   (flush (standard-output-port)))
+
+;; 変換ポートクラス
+(define-class <msjis-input-port> (<virtual-input-port>)
+  ((name :init-keyword :name :init-value "")))
+(define-class <msjis-output-port> (<virtual-output-port>)
+  ((name :init-keyword :name :init-value "")))
 
 ;; リダイレクト有無のチェック
 (define (redirected-handle? hdl)
@@ -215,7 +221,8 @@
   (receive (conv crlf ces ces2 use-api)
       (get-msjis-param rmode STD_INPUT_HANDLE ces use-api)
     (if conv
-      (make <virtual-input-port>
+      (make <msjis-input-port>
+        :name "windows console conversion input"
         :getc (make-msjis-getc (standard-input-port)
                                STD_INPUT_HANDLE ces ces2 use-api))
       #f)))
@@ -225,7 +232,8 @@
   (receive (conv crlf ces ces2 use-api)
       (get-msjis-param rmode STD_OUTPUT_HANDLE ces use-api)
     (if (or conv crlf)
-      (make <virtual-output-port>
+      (make <msjis-output-port>
+        :name "windows console conversion output"
         :putc (make-msjis-puts (standard-output-port) conv crlf
                                STD_OUTPUT_HANDLE ces ces2 use-api)
         :puts (make-msjis-puts (standard-output-port) conv crlf
@@ -237,7 +245,8 @@
   (receive (conv crlf ces ces2 use-api)
       (get-msjis-param rmode STD_ERROR_HANDLE ces use-api)
     (if (or conv crlf)
-      (make <virtual-output-port>
+      (make <msjis-output-port>
+        :name "windows console conversion output error"
         :putc (make-msjis-puts (standard-error-port) conv crlf
                                STD_ERROR_HANDLE ces ces2 use-api)
         :puts (make-msjis-puts (standard-error-port) conv crlf
