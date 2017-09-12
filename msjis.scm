@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-12 v1.63
+;; 2017-9-12 v1.64
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -147,12 +147,13 @@
       (sys-write-console hdl str))))
   ;; 手続きを作って返す
   (lambda (str/char)
-    (let ((str (x->string str/char))
-          (hdl (sys-get-std-handle hdl-type)))
+    (let* ((str (x->string str/char))
+           (hdl (sys-get-std-handle hdl-type))
+           (len (string-length str)))
       ;; 指定文字数ずつ書き出す
       (let loop ((i 0))
         (cond
-         ((<= (string-length str) (+ i maxchars))
+         ((<= len (+ i maxchars))
           (sys-write-console-sub hdl (string-copy str i)))
          (else
           (sys-write-console-sub hdl (string-copy str i (+ i maxchars)))
