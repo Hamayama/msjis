@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-12 v1.64
+;; 2017-9-13 v1.65
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -143,8 +143,7 @@
      (else
       ;; Windows API が ANSI 版のとき
       ;; (文字コードの変換が必要)
-      (set! str (ces-convert str ces2 ces))
-      (sys-write-console hdl str))))
+      (sys-write-console hdl (ces-convert str ces2 ces)))))
   ;; 手続きを作って返す
   (lambda (str/char)
     (let* ((str (x->string str/char))
