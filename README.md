@@ -93,10 +93,10 @@
 
 4. (以下の記述は、Windows 8.1 (64bit), Gauche v0.9.6_pre2 でのみ動作確認しています)  
    現状、コマンドプロンプト上でユニコードの文字を使おうとして、chcp 65001 により、  
-   コードページ CP65001 (UTF-8) を選択しても、正常に機能しません。  
+   コードページ 65001 (UTF-8) を選択しても、正常に機能しません。  
    (日本語フォントが選択できない。MS-IMEが起動しない等の問題が発生します)  
    しかし、コンソールエミュレータの ConEmu ( https://conemu.github.io/ ) 等を利用すれば、  
-   コードページ CP65001 (UTF-8) を選択して、おおむね問題なくユニコードの文字を  
+   コードページ 65001 (UTF-8) を選択して、おおむね問題なくユニコードの文字を  
    使うことができます。  
    この環境で Gauche を使う場合には、msjis-mode の第3引数に #t を指定してください。  
    (指定しないと、文字の後ろにゴミが付加されたり、プログラムが終了したりします)  
@@ -113,7 +113,7 @@
    ConEmu の Settings メニュー で Main を選択し、その中の設定を確認してください。  
    「Compress long strings to fit space」のチェックを外すと、とりあえずフォントの  
    重なりは解消されます。  
-   ただし、この設定を行うと、コードページ CP65001 (UTF-8) の場合には、全角文字を含む  
+   ただし、この設定を行うと、コードページ 65001 (UTF-8) の場合には、全角文字を含む  
    行の表示が画面に入りきらないケースが発生します。  
    現状では、これは、トレードオフになります。  
    
@@ -123,7 +123,7 @@
    また、サロゲートペアの文字については、画面の右端での折り返しが正常に行われない  
    ケースがあるようです(文字が消えたり化けたりします)。  
    
-   (備考) コードページ CP932 のままでも、ユニコードの文字を表示できるようです。  
+   (備考) コードページ 932 のままでも、ユニコードの文字を表示できるようです。  
    (仕様なのかバグなのか分からないが。。。)  
    この場合、行の折り返しは一見正常になりますが、サロゲートペアの文字があると、  
    1文字を2文字分とカウントして折り返してしまいます。
@@ -136,12 +136,12 @@
 
 2. How to redirect STDOUT generated using WriteConsole in kernel32.dll?  
    http://social.msdn.microsoft.com/Forums/vstudio/en-US/716f2f70-9eed-4b96-9f43-f967605f307f/how-to-redirect-stdout-generated-using-writeconsole-in-kernel32dll?forum=netfxbcl  
-   (Win32 API の ReadConsole(),WriteConsole() は、リダイレクトありのときは使えない。  
+   (Win32 API の ReadConsole(), WriteConsole() は、リダイレクトありのときは使えない。  
     リダイレクトの有無は GetConsoleMode() が成功するかどうかで判定できる)
 
 3. Incorrect Unicode output on Windows Console  
    https://ghc.haskell.org/trac/ghc/ticket/4471  
-   (コマンドプロンプトで CP65001 (UTF-8) を選択したときに不具合が発生する。  
+   (コマンドプロンプトで コードページ 65001 (UTF-8) を選択したときに不具合が発生する。  
     具体的には、WriteFile() の結果がフォントによって、  
     文字数を返したり (TrueTypeフォントの場合)  
     バイト数を返したり (ラスターフォント等の場合) する。  
@@ -161,9 +161,30 @@
     あるのかもしれない。  
     → 2015-2-15 再現した。昨年より頻度は減ったような気がする。
 
-6. Gauche v0.9.3.3 では、ReadConsole(),WriteConsole() のラッパーの  
-   sys-read-console,sys-write-console が正常に動作しない。  
+6. Gauche v0.9.3.3 では、ReadConsole(), WriteConsole() のラッパーの  
+   sys-read-console, sys-write-console が正常に動作しない。  
    (Gauche v0.9.4 では修正済み)
+
+7. Windows 8 からかもしれないが、以下の Win32 API が正常に動作しなくなっている。  
+   (Windows 8.1 (64bit) で確認) (2017-9-13)  
+   (a) コードページによらず、  
+   PeekConsoleInput, ReadConsoleInput の ANSI 版が正常に動作しない。  
+   → 漢字を入力すると、文字コードの上位バイトしか取得できない(「あ」→ 0x82)。  
+   (b) コードページが 65001 のとき、  
+   ReadConsole の ANSI 版が正常に動作しない。  
+   → 漢字を入力すると、文字コードが取得できない(「あ」→ 0x0000)。  
+   (c) コードページが 65001 のとき、  
+   ReadConsoleOutput, ReadConsoleOutputCharacter の ANSI 版が正常に動作しない。  
+   → 漢字が表示されていると、文字コードが正常に取得できない(「あ」→ 0x3000)。  
+   (d) コードページが 932 のとき、  
+   ReadConsoleOutput の ANSI 版が正常動作しない。  
+   → 漢字が表示されていると、文字コードが正常に取得できない(「あ」→ 0x3082,0x30A0,0x0020)  
+   (e) コードページが 932 のとき、  
+   ReadConsoleOutput の Unicode 版が正常動作しない。  
+   → 漢字が表示されていると、文字コードが正常に取得できない(「あ」→ 0x3042,0x0020)  
+   (f) コードページが 932 のとき、  
+   ReadConsoleOutputCharacter の Unicode 版が正常動作しない。  
+   → 漢字が表示されていると、指定文字数の半分しか取得できない
 
 
 ## 環境等
