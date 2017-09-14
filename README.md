@@ -149,7 +149,7 @@
 
 4. ReadConsole function (Community Additions : ReadConsole writes an extra byte)  
    https://msdn.microsoft.com/en-us/library/windows/desktop/ms684958  
-   (ReadConsole() がバッファサイズより1バイト多く書き込む)  
+   (ReadConsole() が1バイト多く書き込む)  
    (現在コメント欄が見られなくなっているようです)  
    Windows API の ReadConsoleW (ReadConsole の Unicode版) の再現テスト  
    https://gist.github.com/Hamayama/8b8e71c956e44e7e4bd73421d68fe97d  
@@ -186,15 +186,18 @@
    ReadConsoleOutputCharacter の Unicode 版が正常動作しない。  
    → 漢字が表示されていると、指定文字数の半分しか取得できない
 
-8. コマンドプロンプトで、  
+8. コマンドプロンプト上の Gauche で、  
    gosh> 'あいうえおかきくけこ ...  
-   のように 20000文字くらい改行なしで入力すると、以下のエラーが出る。  
+   のように 漢字を20000文字くらい改行なしで入力すると、以下のエラーが出る。  
    *** SYSTEM-ERROR: read failed on #<iport (standard input) 000000000262DF00>  
    : Invalid argument  
-   → これは、Windows の read (実体は ReadFile) のバグっぽい。  
+   → これは、Windows の標準入力に対する read (実体は ReadFile と思われる) のバグっぽい。  
    https://github.com/golang/go/issues/17427#issuecomment-255541084  
    https://gist.github.com/koron/eafe5ba0d426ef52543464a64396a8a6  
    https://twitter.com/mattn_jp/status/789858403778572289  
+   ただし、read と ReadFile では以下の違いがある。  
+   ReadFile では、読み取ったバイト数が指定したバッファサイズより1大きくなることがあるが、  
+   read ではこのとき -1 が返ってエラーになる。  
    → Gauche の read は、src/port.c でバッファサイズを 8192 バイトとしている。  
    これを小さくすると、もっと少ない文字数でエラーが出るようになる。  
    また、エラーが出ないぎりぎりくらいの文字数にすると、  
@@ -280,4 +283,4 @@
 - 2017-9-13  v1.65 一部処理見直し(sys-write-console-sub)
 
 
-(2017-9-13)
+(2017-9-14)
