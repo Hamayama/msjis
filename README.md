@@ -177,14 +177,17 @@
    ReadConsoleOutput, ReadConsoleOutputCharacter の ANSI 版が正常に動作しない。  
    → 全角文字が表示されていると、文字コードが正常に取得できない(「あ」→ 0x3000)。  
    (d) コードページが 932 のとき、  
-   ReadConsoleOutput の ANSI 版が正常動作しない。  
+   ReadConsoleOutput の ANSI 版が正常に動作しない。  
    → 全角文字が表示されていると、文字コードが正常に取得できない(「あ」→ 0x3082,0x30A0,0x0020)。  
    (e) コードページが 932 のとき、  
-   ReadConsoleOutput の Unicode 版が正常動作しない。  
+   ReadConsoleOutput の Unicode 版が正常に動作しない。  
    → 全角文字が表示されていると、文字コードが正常に取得できない(「あ」→ 0x3042,0x0020)。  
    (f) コードページが 932 のとき、  
-   ReadConsoleOutputCharacter の Unicode 版が正常動作しない。  
-   → 全角文字が表示されていると、指定文字数の半分しか取得できない。
+   ReadConsoleOutputCharacter の Unicode 版が正常に動作しない。  
+   → 全角文字が表示されていると、指定文字数の半分しか取得できない。  
+   (g) コードページが 65001 のとき、  
+   標準入力に対する read および ReadFile が正常に動作しない。  
+   → 全角文字を入力すると、取得バイト数 0 が返ってEOFを受信したことになる。
 
 8. コマンドプロンプト上の Gauche で、  
    gosh> 'あいうえおかきくけこ ...  
@@ -284,4 +287,4 @@
 - 2017-9-13  v1.65 一部処理見直し(sys-write-console-sub)
 
 
-(2017-9-16)
+(2017-9-17)
