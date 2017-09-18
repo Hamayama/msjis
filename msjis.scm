@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-13 v1.65
+;; 2017-9-18 v1.66
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -64,42 +64,76 @@
 (define (make-msjis-getc port hdl-type ces ces2 use-api)
   (if use-api
     ;; Windows API 使用のとき
-    (make-msjis-getc-sub port hdl-type 'UTF-16LE ces2 #t 4 2 2)
+    (make-msjis-getc-sub1 hdl-type 'UTF-16LE ces2 4 2 2)
     ;; Windows API 未使用のとき
-    (make-msjis-getc-sub port hdl-type ces       ces2 #f 6 0 1)))
+    (make-msjis-getc-sub2 port ces ces2 6 1)))
 
-;; 1文字入力の変換処理サブ(内部処理用)
-(define (make-msjis-getc-sub port hdl-type ces ces2 use-api
-                             maxbytes extrabytes readbytes)
+;; 1文字入力の変換処理サブ1 (Windows API 使用)(内部処理用)
+(define (make-msjis-getc-sub1 hdl-type ces ces2 maxbytes extrabytes readbytes)
+  (define line-start-flag #t)
   ;; 手続きを作って返す
   (lambda ()
     (rlet1 chr #\null
       ;; ReadConsole がバッファサイズより1バイト多く書き込む件の対策
       (let ((buf (make-u8vector (+ maxbytes extrabytes) 0))
-            (hdl (if use-api (sys-get-std-handle hdl-type) #f))
-            (i   0))
+            (hdl (sys-get-std-handle hdl-type))
+            (i1  0)
+            (i2  readbytes))
         ;; 文字が完成するまで指定バイトずつ読み込む
         (let loop ()
-          (if (if use-api
-                (zero? ($ sys-read-console hdl
-                          (uvector-alias <u8vector> buf i (+ i readbytes))))
-                (eof-object? (read-block! buf port i (+ i readbytes))))
+          (if (zero? ($ sys-read-console hdl
+                        (uvector-alias <u8vector> buf i1 i2)))
             ;; ファイル終端(EOF)のとき
             (begin
               ;(debug-print-str "[EOF]")
               (set! chr (eof-object)))
             ;; ファイル終端(EOF)以外のとき
             ;; 文字コードの変換(外部コード→内部コード)
-            (let1 str (ces-convert (u8vector->string buf 0 (+ i readbytes))
-                                   ces ces2)
+            (let1 str (ces-convert (u8vector->string buf 0 i2) ces ces2)
               (guard (ex ((<error> ex)
                           ;; 文字が未完成のとき
-                          (when (< (+ i readbytes) maxbytes)
-                            (set! i (+ i readbytes))
+                          (when (< i2 maxbytes)
+                            (set! i1 i2)
+                            (set! i2 (+ i1 readbytes))
                             (loop))))
                 ;; 文字が完成したとき
                 (set! chr (string-ref str 0))))))
-        ;(debug-print-buffer (u8vector-copy buf 0 (+ i readbytes)))
+        ;; Ctrl-z の対応
+        (if (and line-start-flag (eqv? chr #\x1a))
+          (begin
+            ;(debug-print-str "[EOF](Ctrl-z)")
+            (set! chr (eof-object)))
+          (set! line-start-flag (eqv? chr #\newline)))
+        ;(debug-print-buffer (u8vector-copy buf 0 i2))
+        ))))
+
+;; 1文字入力の変換処理サブ2 (Windows API 未使用)(内部処理用)
+(define (make-msjis-getc-sub2 port ces ces2 maxbytes readbytes)
+  ;; 手続きを作って返す
+  (lambda ()
+    (rlet1 chr #\null
+      (let ((buf (make-u8vector maxbytes 0))
+            (i1  0)
+            (i2  readbytes))
+        ;; 文字が完成するまで指定バイトずつ読み込む
+        (let loop ()
+          (if (eof-object? (read-block! buf port i1 i2))
+            ;; ファイル終端(EOF)のとき
+            (begin
+              ;(debug-print-str "[EOF]")
+              (set! chr (eof-object)))
+            ;; ファイル終端(EOF)以外のとき
+            ;; 文字コードの変換(外部コード→内部コード)
+            (let1 str (ces-convert (u8vector->string buf 0 i2) ces ces2)
+              (guard (ex ((<error> ex)
+                          ;; 文字が未完成のとき
+                          (when (< i2 maxbytes)
+                            (set! i1 i2)
+                            (set! i2 (+ i1 readbytes))
+                            (loop))))
+                ;; 文字が完成したとき
+                (set! chr (string-ref str 0))))))
+        ;(debug-print-buffer (u8vector-copy buf 0 i2))
         ))))
 
 
