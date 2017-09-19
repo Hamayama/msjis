@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-18 v1.66
+;; 2017-9-19 v1.67
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -154,26 +154,32 @@
      (gauche.ces.utf8
       ;; Windows API が Unicode 版のとき
       ;; (サロゲートペアの文字の折り返しの不具合対策)
-      (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
-             (w     (+ 1 (- (slot-ref cinfo 'window.right)
-                            (slot-ref cinfo 'window.left))))
-             (len   (string-length str))
-             (i1    0)
-             (i2    0))
-        (let loop ([c (string-ref str 0)])
-          (when (>= (char->integer c) #x10000)
-            (sys-write-console hdl (string-copy str i1 i2))
-            (set! i1 i2)
-            (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
-                   (x     (slot-ref cinfo 'cursor-position.x))
-                   (y     (slot-ref cinfo 'cursor-position.y)))
-              (when (> x (- w 4))
-                (sys-set-console-cursor-position hdl (- w 1) y)
-                (sys-write-console hdl " "))))
-          (inc! i2)
-          (if (< i2 len)
-            (loop (string-ref str i2))))
-        (sys-write-console hdl (string-copy str i1))))
+      (let1 buf (string->u32vector str)
+        (if (u32vector-range-check buf 0 #xffff)
+          ;; サロゲートペアの文字があるとき
+          (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
+                 (w     (+ 1 (- (slot-ref cinfo 'window.right)
+                                (slot-ref cinfo 'window.left))))
+                 (cw    (if (= (sys-get-console-output-cp) 65001) 2 4))
+                 (len   (string-length str))
+                 (i1    0)
+                 (i2    0))
+            (let loop ()
+              (when (>= (u32vector-ref buf i2) #x10000)
+                (sys-write-console hdl (string-copy str i1 i2))
+                (set! i1 i2)
+                (let* ((cinfo (sys-get-console-screen-buffer-info hdl))
+                       (x     (slot-ref cinfo 'cursor-position.x))
+                       (y     (slot-ref cinfo 'cursor-position.y)))
+                  (when (> x (- w cw))
+                    (sys-set-console-cursor-position hdl (- w 1) y)
+                    (sys-write-console hdl " "))))
+              (inc! i2)
+              (if (< i2 len)
+                (loop)))
+            (sys-write-console hdl (string-copy str i1)))
+          ;; サロゲートペアの文字がないとき
+          (sys-write-console hdl str))))
      (else
       ;; Windows API が ANSI 版のとき
       ;; (文字コードの変換が必要)
