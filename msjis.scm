@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-19 v1.67
+;; 2017-9-20 v1.68
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -73,68 +73,70 @@
   (define line-start-flag #t)
   ;; 手続きを作って返す
   (lambda ()
-    (rlet1 chr #\null
-      ;; ReadConsole がバッファサイズより1バイト多く書き込む件の対策
-      (let ((buf (make-u8vector (+ maxbytes extrabytes) 0))
-            (hdl (sys-get-std-handle hdl-type))
-            (i1  0)
-            (i2  readbytes))
-        ;; 文字が完成するまで指定バイトずつ読み込む
-        (let loop ()
-          (if (zero? ($ sys-read-console hdl
-                        (uvector-alias <u8vector> buf i1 i2)))
-            ;; ファイル終端(EOF)のとき
-            (begin
-              ;(debug-print-str "[EOF]")
-              (set! chr (eof-object)))
-            ;; ファイル終端(EOF)以外のとき
-            ;; 文字コードの変換(外部コード→内部コード)
-            (let1 str (ces-convert (u8vector->string buf 0 i2) ces ces2)
-              (guard (ex ((<error> ex)
-                          ;; 文字が未完成のとき
-                          (when (< i2 maxbytes)
-                            (set! i1 i2)
-                            (set! i2 (+ i1 readbytes))
-                            (loop))))
-                ;; 文字が完成したとき
-                (set! chr (string-ref str 0))))))
-        ;; Ctrl-z の対応
-        (if (and line-start-flag (eqv? chr #\x1a))
+    ;; ReadConsole がバッファサイズより1バイト多く書き込む件の対策
+    (let ((buf (make-u8vector (+ maxbytes extrabytes) 0))
+          (hdl (sys-get-std-handle hdl-type)))
+      ;; 文字が完成するまで指定バイトずつ読み込む
+      (let loop ((i1 0) (i2 readbytes))
+        (if (zero? ($ sys-read-console hdl
+                      (uvector-alias <u8vector> buf i1 i2)))
+          ;; ファイル終端(EOF)のとき
           (begin
-            ;(debug-print-str "[EOF](Ctrl-z)")
-            (set! chr (eof-object)))
-          (set! line-start-flag (eqv? chr #\newline)))
-        ;(debug-print-buffer (u8vector-copy buf 0 i2))
-        ))))
+            ;(debug-print-str "[EOF]")
+            (eof-object))
+          ;; ファイル終端(EOF)以外のとき
+          ;; 文字コードの変換(外部コード→内部コード)
+          (let1 str (ces-convert (u8vector->string buf 0 i2) ces ces2)
+            (guard (ex ((<error> ex)
+                        ;; 文字が未完成のとき
+                        (if (< i2 maxbytes)
+                          (loop i2 (+ i2 readbytes))
+                          (begin
+                            ;(debug-print-str "[Invalid]")
+                            ;(debug-print-buffer (u8vector-copy buf 0 i2))
+                            #\null))))
+              ;; 文字が完成したとき
+              (let1 chr (string-ref str 0)
+                (cond
+                 ;; 行頭のCtrl-zのとき
+                 ((and line-start-flag (eqv? chr #\x1a))
+                  ;(debug-print-str "[EOF](Ctrl-z)")
+                  (eof-object))
+                 ;; その他の文字のとき
+                 (else
+                  (set! line-start-flag (eqv? chr #\newline))
+                  ;(debug-print-char-code chr)
+                  ;(debug-print-buffer (u8vector-copy buf 0 i2))
+                  chr))))))))))
 
 ;; 1文字入力の変換処理サブ2 (Windows API 未使用)(内部処理用)
 (define (make-msjis-getc-sub2 port ces ces2 maxbytes readbytes)
   ;; 手続きを作って返す
   (lambda ()
-    (rlet1 chr #\null
-      (let ((buf (make-u8vector maxbytes 0))
-            (i1  0)
-            (i2  readbytes))
-        ;; 文字が完成するまで指定バイトずつ読み込む
-        (let loop ()
-          (if (eof-object? (read-block! buf port i1 i2))
-            ;; ファイル終端(EOF)のとき
-            (begin
-              ;(debug-print-str "[EOF]")
-              (set! chr (eof-object)))
-            ;; ファイル終端(EOF)以外のとき
-            ;; 文字コードの変換(外部コード→内部コード)
-            (let1 str (ces-convert (u8vector->string buf 0 i2) ces ces2)
-              (guard (ex ((<error> ex)
-                          ;; 文字が未完成のとき
-                          (when (< i2 maxbytes)
-                            (set! i1 i2)
-                            (set! i2 (+ i1 readbytes))
-                            (loop))))
-                ;; 文字が完成したとき
-                (set! chr (string-ref str 0))))))
-        ;(debug-print-buffer (u8vector-copy buf 0 i2))
-        ))))
+    (let1 buf (make-u8vector maxbytes 0)
+      ;; 文字が完成するまで指定バイトずつ読み込む
+      (let loop ((i1 0) (i2 readbytes))
+        (if (eof-object? (read-block! buf port i1 i2))
+          ;; ファイル終端(EOF)のとき
+          (begin
+            ;(debug-print-str "[EOF]")
+            (eof-object))
+          ;; ファイル終端(EOF)以外のとき
+          ;; 文字コードの変換(外部コード→内部コード)
+          (let1 str (ces-convert (u8vector->string buf 0 i2) ces ces2)
+            (guard (ex ((<error> ex)
+                        ;; 文字が未完成のとき
+                        (if (< i2 maxbytes)
+                          (loop i2 (+ i2 readbytes))
+                          (begin
+                            ;(debug-print-str "[Invalid]")
+                            ;(debug-print-buffer (u8vector-copy buf 0 i2))
+                            #\null))))
+              ;; 文字が完成したとき
+              (let1 chr (string-ref str 0)
+                ;(debug-print-char-code chr)
+                ;(debug-print-buffer (u8vector-copy buf 0 i2))
+                chr))))))))
 
 
 
@@ -161,10 +163,8 @@
                  (w     (+ 1 (- (slot-ref cinfo 'window.right)
                                 (slot-ref cinfo 'window.left))))
                  (cw    (if (= (sys-get-console-output-cp) 65001) 2 4))
-                 (len   (string-length str))
-                 (i1    0)
-                 (i2    0))
-            (let loop ()
+                 (len   (string-length str)))
+            (let loop ((i1 0) (i2 0))
               (when (>= (u32vector-ref buf i2) #x10000)
                 (sys-write-console hdl (string-copy str i1 i2))
                 (set! i1 i2)
@@ -174,10 +174,9 @@
                   (when (> x (- w cw))
                     (sys-set-console-cursor-position hdl (- w 1) y)
                     (sys-write-console hdl " "))))
-              (inc! i2)
-              (if (< i2 len)
-                (loop)))
-            (sys-write-console hdl (string-copy str i1)))
+              (if (< (+ i2 1) len)
+                (loop i1 (+ i2 1))
+                (sys-write-console hdl (string-copy str i1)))))
           ;; サロゲートペアの文字がないとき
           (sys-write-console hdl str))))
      (else
@@ -219,6 +218,9 @@
   (define (check-ces ces1 ces2 ces-err)
     (unless (ces-conversion-supported? ces1 ces2)
       (errorf "ces \"~a\" is not supported" ces-err)))
+  ;; 引数のチェック
+  (unless (integer? rmode)
+    (error "integer required, but got" rmode))
   ;; 変換用パラメータの取得
   (let* ((stdin-flag (eqv? hdl-type STD_INPUT_HANDLE))
          (rdir       (redirected-handle? (sys-get-std-handle hdl-type)))

@@ -287,6 +287,8 @@
 - 2017-9-13  v1.65 一部処理見直し(sys-write-console-sub)
 - 2017-9-18  v1.66 ReadConsoleのCtrl-zの処理追加等
 - 2017-9-19  v1.67 一部処理見直し(sys-write-console-sub)
+- 2017-9-20  v1.68 一部処理見直し(make-msjis-getc-sub1,make-msjis-getc-sub2,sys-write-console-sub)  
+  引数のチェック処理追加
 
 
-(2017-9-19)
+(2017-9-20)
