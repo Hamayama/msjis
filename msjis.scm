@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-20 v1.68
+;; 2017-9-24 v1.69
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -11,9 +11,9 @@
 ;;   https://github.com/Hamayama/msjis
 ;;
 (define-module msjis
-  (use gauche.charconv)
   (use gauche.vport)
   (use gauche.uvector)
+  (use gauche.charconv)
   (use os.windows)
   (export
     msjis-mode
@@ -33,12 +33,6 @@
   (display (map (cut format "~2,'0Xh" <>) (u8vector->list buf)) (standard-output-port))
   (flush (standard-output-port)))
 
-;; 変換ポートクラス
-(define-class <msjis-input-port> (<virtual-input-port>)
-  ((name :init-keyword :name :init-value "")))
-(define-class <msjis-output-port> (<virtual-output-port>)
-  ((name :init-keyword :name :init-value "")))
-
 ;; リダイレクト有無のチェック
 (define (redirected-handle? hdl)
   (guard (ex ((<system-error> ex) #t))
@@ -57,6 +51,12 @@
   (if (global-variable-bound? 'os.windows 'sys-read-console-w)
     (with-module os.windows sys-read-console-w)
     (with-module os.windows sys-read-console)))
+
+;; ポート属性の設定手続き(Gauche v0.9.4 以後に存在)
+(define port-attribute-set!
+  (if (global-variable-bound? 'gauche 'port-attribute-set!)
+    (with-module gauche port-attribute-set!)
+    (lambda (port key val) #f)))
 
 
 
@@ -263,10 +263,11 @@
   (receive (conv crlf ces ces2 use-api)
       (get-msjis-param rmode STD_INPUT_HANDLE ces use-api)
     (if conv
-      (make <msjis-input-port>
-        :name "windows console conversion input"
-        :getc (make-msjis-getc (standard-input-port)
-                               STD_INPUT_HANDLE ces ces2 use-api))
+      (rlet1 vport (make <virtual-input-port>)
+        (port-attribute-set! vport 'windows-console-conversion #t)
+        (let1 proc (make-msjis-getc (standard-input-port)
+                                    STD_INPUT_HANDLE ces ces2 use-api)
+          (set! (~ vport'getc) proc)))
       #f)))
 
 ;; 標準出力の変換ポートの作成
@@ -274,12 +275,12 @@
   (receive (conv crlf ces ces2 use-api)
       (get-msjis-param rmode STD_OUTPUT_HANDLE ces use-api)
     (if (or conv crlf)
-      (make <msjis-output-port>
-        :name "windows console conversion output"
-        :putc (make-msjis-puts (standard-output-port) conv crlf
-                               STD_OUTPUT_HANDLE ces ces2 use-api)
-        :puts (make-msjis-puts (standard-output-port) conv crlf
-                               STD_OUTPUT_HANDLE ces ces2 use-api))
+      (rlet1 vport (make <virtual-output-port>)
+        (port-attribute-set! vport 'windows-console-conversion #t)
+        (let1 proc (make-msjis-puts (standard-output-port) conv crlf
+                                    STD_OUTPUT_HANDLE ces ces2 use-api)
+          (set! (~ vport'putc) proc)
+          (set! (~ vport'puts) proc)))
       #f)))
 
 ;; 標準エラー出力の変換ポートの作成
@@ -287,12 +288,12 @@
   (receive (conv crlf ces ces2 use-api)
       (get-msjis-param rmode STD_ERROR_HANDLE ces use-api)
     (if (or conv crlf)
-      (make <msjis-output-port>
-        :name "windows console conversion error output"
-        :putc (make-msjis-puts (standard-error-port) conv crlf
-                               STD_ERROR_HANDLE ces ces2 use-api)
-        :puts (make-msjis-puts (standard-error-port) conv crlf
-                               STD_ERROR_HANDLE ces ces2 use-api))
+      (rlet1 vport (make <virtual-output-port>)
+        (port-attribute-set! vport 'windows-console-conversion #t)
+        (let1 proc (make-msjis-puts (standard-error-port) conv crlf
+                                    STD_ERROR_HANDLE ces ces2 use-api)
+          (set! (~ vport'putc) proc)
+          (set! (~ vport'puts) proc)))
       #f)))
 
 
