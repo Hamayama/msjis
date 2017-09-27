@@ -290,7 +290,8 @@
 - 2017-9-20  v1.68 一部処理見直し(make-msjis-getc-sub1,make-msjis-getc-sub2,sys-write-console-sub)  
   引数のチェック処理追加
 - 2017-9-24  v1.69 変換ポートクラスを削除  
-  (port-attributesの方に識別情報を付加するようにした)
+  (port-attributesの方に識別情報を設定するようにした)
+- 2017-9-27  v1.70 port-attributesの設定条件追加(リダイレクト時には設定しない)
 
 
-(2017-9-24)
+(2017-9-27)

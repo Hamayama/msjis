@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; msjis.scm
-;; 2017-9-24 v1.69
+;; 2017-9-27 v1.70
 ;;
 ;; ＜内容＞
 ;;   Windows のコマンドプロンプトで Gauche を使うときに、
@@ -254,17 +254,18 @@
     ;; リダイレクトありのときは Windows API は使用不可
     (if rdir (set! use-api #f))
     ;; 結果を多値で返す
-    (values conv crlf ces ces2 use-api)))
+    (values conv crlf ces ces2 use-api rdir)))
 
 
 
 ;; 標準入力の変換ポートの作成
 (define (make-msjis-stdin-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf ces ces2 use-api)
+  (receive (conv crlf ces ces2 use-api rdir)
       (get-msjis-param rmode STD_INPUT_HANDLE ces use-api)
     (if conv
       (rlet1 vport (make <virtual-input-port>)
-        (port-attribute-set! vport 'windows-console-conversion #t)
+        (unless rdir
+          (port-attribute-set! vport 'windows-console-conversion #t))
         (let1 proc (make-msjis-getc (standard-input-port)
                                     STD_INPUT_HANDLE ces ces2 use-api)
           (set! (~ vport'getc) proc)))
@@ -272,11 +273,12 @@
 
 ;; 標準出力の変換ポートの作成
 (define (make-msjis-stdout-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf ces ces2 use-api)
+  (receive (conv crlf ces ces2 use-api rdir)
       (get-msjis-param rmode STD_OUTPUT_HANDLE ces use-api)
     (if (or conv crlf)
       (rlet1 vport (make <virtual-output-port>)
-        (port-attribute-set! vport 'windows-console-conversion #t)
+        (unless rdir
+          (port-attribute-set! vport 'windows-console-conversion #t))
         (let1 proc (make-msjis-puts (standard-output-port) conv crlf
                                     STD_OUTPUT_HANDLE ces ces2 use-api)
           (set! (~ vport'putc) proc)
@@ -285,11 +287,12 @@
 
 ;; 標準エラー出力の変換ポートの作成
 (define (make-msjis-stderr-port :optional (rmode 0) (ces '#f) (use-api #f))
-  (receive (conv crlf ces ces2 use-api)
+  (receive (conv crlf ces ces2 use-api rdir)
       (get-msjis-param rmode STD_ERROR_HANDLE ces use-api)
     (if (or conv crlf)
       (rlet1 vport (make <virtual-output-port>)
-        (port-attribute-set! vport 'windows-console-conversion #t)
+        (unless rdir
+          (port-attribute-set! vport 'windows-console-conversion #t))
         (let1 proc (make-msjis-puts (standard-error-port) conv crlf
                                     STD_ERROR_HANDLE ces ces2 use-api)
           (set! (~ vport'putc) proc)
