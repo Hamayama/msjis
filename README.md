@@ -142,7 +142,7 @@
 
 2. How to redirect STDOUT generated using WriteConsole in kernel32.dll?  
    http://social.msdn.microsoft.com/Forums/vstudio/en-US/716f2f70-9eed-4b96-9f43-f967605f307f/how-to-redirect-stdout-generated-using-writeconsole-in-kernel32dll?forum=netfxbcl  
-   (Win32 API の ReadConsole(), WriteConsole() は、リダイレクトありのときは使えない。  
+   (Windows API の ReadConsole(), WriteConsole() は、リダイレクトありのときは使えない。  
     リダイレクトの有無は GetConsoleMode() が成功するかどうかで判定できる)
 
 3. Incorrect Unicode output on Windows Console  
@@ -161,17 +161,17 @@
    https://gist.github.com/Hamayama/8b8e71c956e44e7e4bd73421d68fe97d  
    (再現テストを行いました)
 
-5. Windows XP で ReadConsole() を使用すると、文字化けが発生することがある。  
-   (行頭の文字が「g」に化ける)  
-    → 2015-2-2 追試したら再現しないため、修正されたか、もしくは、何か発生条件が  
-    あるのかもしれない。  
-    → 2015-2-15 再現した。昨年より頻度は減ったような気がする。
+5. Windows XP で ReadConsole() を使用すると、文字列の貼り付け(ペースト)時に、  
+   文字化けが発生することがある。(行頭の文字が「g」に化ける)  
+   → 2015-2-2 追試したら再現しないため、修正されたか、もしくは、何か発生条件が  
+   あるのかもしれない。  
+   → 2015-2-15 再現した。昨年より頻度は減ったような気がする。
 
 6. Gauche v0.9.3.3 では、ReadConsole(), WriteConsole() のラッパーの  
    sys-read-console, sys-write-console が正常に動作しない。  
    (Gauche v0.9.4 では修正済み)
 
-7. Windows 8 からかもしれないが、以下の Win32 API が正常に動作しなくなっている。  
+7. Windows 8 からかもしれないが、以下の Windows API が正常に動作しなくなっている。  
    (Windows 8.1 (64bit) で確認) (2017-9-13)  
    (a) コードページによらず、  
    PeekConsoleInput, ReadConsoleInput の ANSI 版が正常に動作しない。  
@@ -212,6 +212,12 @@
    また、エラーが出ないぎりぎりくらいの文字数にすると、  
    Enterキーを2回押さないと入力できないケースがある。  
    → Windows の問題なので、制限事項ということになると思う。
+
+9. WriteConsole は、64キロバイトの共有メモリを、書き込もうとするスレッドすべてが  
+   取り合う形で使用する。  
+   このため、1回の WriteConsole で何バイトまで書き込めるかは、同時に書き込もうとする  
+   スレッド数によって変化する。  
+   https://bugs.python.org/issue11395#msg132284
 
 
 ## 環境等
@@ -300,4 +306,4 @@
 - 2017-9-27  v1.70 port-attributesの設定条件追加(リダイレクト時には設定しない)
 
 
-(2017-9-29)
+(2017-10-1)
